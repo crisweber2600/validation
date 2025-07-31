@@ -6,7 +6,7 @@ using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.Messaging;
 
-public class SaveRequestedConsumer : IConsumer<SaveRequested>
+public class SaveRequestedConsumer<T> : IConsumer<SaveRequested<T>>
 {
     private readonly ISaveAuditRepository _repository;
     private readonly IValidationRule _rule;
@@ -18,7 +18,7 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
         _rule = rule;
     }
 
-    public async Task Consume(ConsumeContext<SaveRequested> context)
+    public async Task Consume(ConsumeContext<SaveRequested<T>> context)
     {
         var metric = new Random().Next(0, 100); // simulate metric
         var isValid = _rule.Validate(_previousMetric, metric);
