@@ -16,11 +16,11 @@ public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         _validator = validator;
     }
 
-    public Task Consume(ConsumeContext<DeleteRequested> context)
+    public async Task Consume(ConsumeContext<DeleteRequested> context)
     {
         var rules = _planProvider.GetRules<T>();
-        // execute manual rules with zero metrics since delete; actual logic omitted
-        _validator.Validate(0, 0, rules);
-        return Task.CompletedTask;
+        // execute manual rules with zero metrics since delete
+        var isValid = _validator.Validate(0, 0, rules);
+        await context.Publish(new DeleteValidated(context.Message.Id, isValid));
     }
 }
