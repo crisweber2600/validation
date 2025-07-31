@@ -18,9 +18,9 @@ public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
 
     public Task Consume(ConsumeContext<DeleteRequested> context)
     {
-        var rules = _planProvider.GetRules<T>();
+        var plan = _planProvider.GetPlan(typeof(T));
         // execute manual rules with zero metrics since delete; actual logic omitted
-        _validator.Validate(0, 0, rules);
+        _validator.Validate(0, 0, plan.Rules);
         return Task.CompletedTask;
     }
 }

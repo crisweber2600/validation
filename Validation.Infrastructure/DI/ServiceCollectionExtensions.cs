@@ -82,6 +82,7 @@ public static class ValidationFlowServiceCollectionExtensions
     public static IServiceCollection AddValidationFlow<TRule>(this IServiceCollection services, Action<ValidationFlowOptions>? configure = null)
         where TRule : class, IValidationRule
     {
+        services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddScoped<IValidationRule, TRule>();
         services.AddScoped<SummarisationValidator>();
         services.AddMassTransitTestHarness(x =>
