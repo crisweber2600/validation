@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Validation.Domain\Validation.Domain.csproj" />
     <ProjectReference Include="..\Validation.Infrastructure\Validation.Infrastructure.csproj" />
+    <ProjectReference Include="..\ValidationFlow.Domain\ValidationFlow.Domain.csproj" />
   </ItemGroup>
 
 </Project>
