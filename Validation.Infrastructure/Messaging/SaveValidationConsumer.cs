@@ -23,17 +23,8 @@ public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
         var last = await _repository.GetLastAsync(context.Message.Id, context.CancellationToken);
         var metric = new Random().Next(0, 100);
         var rules = _planProvider.GetRules<T>();
-        var isValid = _validator.Validate(last?.Metric ?? 0m, metric, rules);
+        var validated = _validator.Validate(last?.Metric ?? 0m, metric, rules);
 
-        var audit = new SaveAudit
-        {
-            Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
-            IsValid = isValid,
-            Metric = metric
-        };
-
-        await _repository.AddAsync(audit, context.CancellationToken);
-        await context.Publish(new SaveValidated<T>(context.Message.Id, audit.Id));
+        await context.Publish(new SaveValidated(context.Message.Id, validated));
     }
 }

@@ -1,3 +1,3 @@
 namespace Validation.Domain.Events;
 
-public record SaveValidated(Guid Id, bool IsValid, decimal Metric);
+public record SaveValidated(Guid Id, bool Validated);

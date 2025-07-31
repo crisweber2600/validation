@@ -9,16 +9,21 @@ namespace Validation.Tests;
 
 public class SaveValidationConsumerTests
 {
-    private class TestPlanProvider : IValidationPlanProvider
+    private class FailingRule : IValidationRule
     {
-        public IEnumerable<IValidationRule> GetRules<T>() => new[] { new RawDifferenceRule(100) };
+        public bool Validate(decimal previousValue, decimal newValue) => false;
+    }
+
+    private class FailingPlanProvider : IValidationPlanProvider
+    {
+        public IEnumerable<IValidationRule> GetRules<T>() => new[] { new FailingRule() };
     }
 
     [Fact]
-    public async Task Publish_SaveValidated_after_processing()
+    public async Task Publish_SaveValidated_false_when_rule_fails()
     {
         var repository = new InMemorySaveAuditRepository();
-        var consumer = new SaveValidationConsumer<Item>(new TestPlanProvider(), repository, new SummarisationValidator());
+        var consumer = new SaveValidationConsumer<Item>(new FailingPlanProvider(), repository, new SummarisationValidator());
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);
@@ -26,9 +31,10 @@ public class SaveValidationConsumerTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid(), "p"));
 
-            Assert.True(await harness.Published.Any<SaveValidated<Item>>());
+            var published = await harness.Published.SelectAsync<SaveValidated>().First();
+            Assert.False(published.Context.Message.Validated);
         }
         finally
         {
