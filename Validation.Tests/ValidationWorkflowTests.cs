@@ -20,7 +20,7 @@ public class ValidationWorkflowTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid(), 1m));
             Assert.True(await harness.Consumed.Any<SaveRequested>());
             Assert.True(await consumerHarness.Consumed.Any<SaveRequested>());
             Assert.Single(repository.Audits);

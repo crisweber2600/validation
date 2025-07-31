@@ -1,3 +1,4 @@
+using System;
 using MassTransit;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
@@ -20,7 +21,7 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
 
     public async Task Consume(ConsumeContext<SaveRequested> context)
     {
-        var metric = new Random().Next(0, 100); // simulate metric
+        var metric = Convert.ToDecimal(context.Message.Payload);
         var isValid = _rule.Validate(_previousMetric, metric);
         _previousMetric = metric;
         var audit = new SaveAudit
@@ -31,6 +32,6 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
             Metric = metric
         };
         await _repository.AddAsync(audit, context.CancellationToken);
-        await context.Publish(new SaveValidated(context.Message.Id, isValid, metric), context.CancellationToken);
+        await context.Publish(new SaveValidated(context.Message.Id, isValid), context.CancellationToken);
     }
 }

@@ -10,13 +10,13 @@ public class Item : EntityWithEvents
     public Item(decimal metric)
     {
         Metric = metric;
-        AddEvent(new SaveRequested(Id));
+        AddEvent(new SaveRequested(Id, Metric));
     }
 
     public void UpdateMetric(decimal metric)
     {
         Metric = metric;
-        AddEvent(new SaveRequested(Id));
+        AddEvent(new SaveRequested(Id, Metric));
     }
 
     public void Delete()

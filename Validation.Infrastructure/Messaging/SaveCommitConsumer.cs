@@ -1,10 +1,11 @@
+using System;
 using MassTransit;
 using Validation.Domain.Events;
 using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Messaging;
 
-public class SaveCommitConsumer<T> : IConsumer<SaveValidated<T>>
+public class SaveCommitConsumer : IConsumer<SaveValidated>
 {
     private readonly ISaveAuditRepository _repository;
 
@@ -13,19 +14,16 @@ public class SaveCommitConsumer<T> : IConsumer<SaveValidated<T>>
         _repository = repository;
     }
 
-    public async Task Consume(ConsumeContext<SaveValidated<T>> context)
+    public async Task Consume(ConsumeContext<SaveValidated> context)
     {
-        try
+        var audit = new SaveAudit
         {
-            var audit = await _repository.GetAsync(context.Message.AuditId, context.CancellationToken);
-            if (audit != null)
-            {
-                await _repository.UpdateAsync(audit, context.CancellationToken);
-            }
-        }
-        catch (Exception ex)
-        {
-            await context.Publish(new SaveCommitFault<T>(context.Message.EntityId, context.Message.AuditId, ex.Message));
-        }
+            Id = Guid.NewGuid(),
+            EntityId = context.Message.Id,
+            IsValid = context.Message.Validated,
+            Metric = 0m
+        };
+
+        await _repository.AddAsync(audit, context.CancellationToken);
     }
 }
