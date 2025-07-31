@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Validation.Infrastructure;
+using Validation.Domain.Entities;
 
 namespace Validation.Tests;
 
@@ -10,4 +11,5 @@ public class TestDbContext : DbContext
     }
 
     public DbSet<SaveAudit> SaveAudits => Set<SaveAudit>();
+    public DbSet<Item> Items => Set<Item>();
 }
