@@ -22,7 +22,7 @@ public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
     {
         var last = await _repository.GetLastAsync(context.Message.Id, context.CancellationToken);
         var metric = new Random().Next(0, 100);
-        var rules = _planProvider.GetRules<T>();
+        var rules = _planProvider.GetPlan(typeof(T)).Rules;
         var isValid = _validator.Validate(last?.Metric ?? 0m, metric, rules);
 
         var audit = new SaveAudit
