@@ -2,7 +2,6 @@ using MassTransit;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Repositories;
-using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.Messaging;
 
@@ -31,5 +30,6 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
             Metric = metric
         };
         await _repository.AddAsync(audit, context.CancellationToken);
+        await context.Publish(new SaveValidated(context.Message.Id, isValid, metric), context.CancellationToken);
     }
 }
