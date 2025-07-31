@@ -27,6 +27,13 @@ public class MongoSaveAuditRepository : ISaveAuditRepository
         return result;
     }
 
+    public async Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+    {
+        var filter = Builders<SaveAudit>.Filter.Eq(x => x.EntityId, entityId);
+        var sort = Builders<SaveAudit>.Sort.Descending(x => x.Timestamp);
+        return await _collection.Find(filter).Sort(sort).FirstOrDefaultAsync(ct);
+    }
+
     public async Task UpdateAsync(SaveAudit entity, CancellationToken ct = default)
     {
         await _collection.ReplaceOneAsync(x => x.Id == entity.Id, entity, cancellationToken: ct);

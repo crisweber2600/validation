@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Repositories;
@@ -33,6 +34,13 @@ public class EfCoreSaveAuditRepository : ISaveAuditRepository
     public async Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
     {
         return await _set.FindAsync(new object?[] { id }, ct);
+    }
+
+    public async Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+    {
+        return await _set.Where(x => x.EntityId == entityId)
+            .OrderByDescending(x => x.Timestamp)
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task UpdateAsync(SaveAudit entity, CancellationToken ct = default)
