@@ -1,6 +1,13 @@
 namespace Validation.Domain.Validation;
 
-public class SummarisationValidator
+using System.Linq;
+
+public interface ISummarisationValidator
+{
+    bool Validate(decimal previousValue, decimal newValue, IEnumerable<IValidationRule> rules);
+}
+
+public class SummarisationValidator : ISummarisationValidator
 {
     public bool Validate(decimal previousValue, decimal newValue, IEnumerable<IValidationRule> rules)
     {
