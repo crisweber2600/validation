@@ -1,5 +1,8 @@
+using System;
+
 namespace Validation.Domain.Validation;
 
+[Obsolete("Use ValidationPlan with ThresholdType instead.")]
 public class PercentChangeRule : IValidationRule
 {
     private readonly decimal _percent;
