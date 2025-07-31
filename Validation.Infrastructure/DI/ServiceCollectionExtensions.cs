@@ -7,6 +7,7 @@ using Serilog;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure.ValidationPlans;
 
 namespace Validation.Infrastructure.DI;
 
@@ -17,6 +18,7 @@ public static class ServiceCollectionExtensions
         Action<IBusRegistrationConfigurator>? configureBus = null)
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
 
         services.AddMassTransit(x =>
         {
@@ -36,6 +38,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
 
         services.AddMassTransit(x =>
         {
@@ -91,6 +94,7 @@ public static class ValidationFlowServiceCollectionExtensions
         });
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+        services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
         return services;

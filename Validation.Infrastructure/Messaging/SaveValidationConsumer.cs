@@ -22,8 +22,8 @@ public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
     {
         var last = await _repository.GetLastAsync(context.Message.Id, context.CancellationToken);
         var metric = new Random().Next(0, 100);
-        var rules = _planProvider.GetRules<T>();
-        var isValid = _validator.Validate(last?.Metric ?? 0m, metric, rules);
+        var plan = _planProvider.GetPlan(typeof(T));
+        var isValid = _validator.Validate(last?.Metric ?? 0m, metric, plan.Rules);
 
         var audit = new SaveAudit
         {

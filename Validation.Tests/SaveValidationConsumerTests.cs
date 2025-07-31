@@ -4,21 +4,20 @@ using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Domain.Entities;
+using Validation.Infrastructure.ValidationPlans;
 
 namespace Validation.Tests;
 
 public class SaveValidationConsumerTests
 {
-    private class TestPlanProvider : IValidationPlanProvider
-    {
-        public IEnumerable<IValidationRule> GetRules<T>() => new[] { new RawDifferenceRule(100) };
-    }
 
     [Fact]
     public async Task Publish_SaveValidated_after_processing()
     {
         var repository = new InMemorySaveAuditRepository();
-        var consumer = new SaveValidationConsumer<Item>(new TestPlanProvider(), repository, new SummarisationValidator());
+        var provider = new InMemoryValidationPlanProvider();
+        provider.AddPlan<Item>(new ValidationPlan(new[] { new RawDifferenceRule(100) }));
+        var consumer = new SaveValidationConsumer<Item>(provider, repository, new SummarisationValidator());
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);
