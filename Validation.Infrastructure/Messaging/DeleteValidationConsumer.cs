@@ -8,9 +8,9 @@ namespace Validation.Infrastructure.Messaging;
 public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
 {
     private readonly IValidationPlanProvider _planProvider;
-    private readonly SummarisationValidator _validator;
+    private readonly ISummarisationValidator _validator;
 
-    public DeleteValidationConsumer(IValidationPlanProvider planProvider, SummarisationValidator validator)
+    public DeleteValidationConsumer(IValidationPlanProvider planProvider, ISummarisationValidator validator)
     {
         _planProvider = planProvider;
         _validator = validator;

@@ -83,7 +83,7 @@ public static class ValidationFlowServiceCollectionExtensions
         where TRule : class, IValidationRule
     {
         services.AddScoped<IValidationRule, TRule>();
-        services.AddScoped<SummarisationValidator>();
+        services.AddScoped<ISummarisationValidator, SummarisationValidator>();
         services.AddMassTransitTestHarness(x =>
         {
             x.AddConsumer<SaveRequestedConsumer>();

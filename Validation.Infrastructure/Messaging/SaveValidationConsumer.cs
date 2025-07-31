@@ -9,9 +9,9 @@ public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
 {
     private readonly IValidationPlanProvider _planProvider;
     private readonly ISaveAuditRepository _repository;
-    private readonly SummarisationValidator _validator;
+    private readonly ISummarisationValidator _validator;
 
-    public SaveValidationConsumer(IValidationPlanProvider planProvider, ISaveAuditRepository repository, SummarisationValidator validator)
+    public SaveValidationConsumer(IValidationPlanProvider planProvider, ISaveAuditRepository repository, ISummarisationValidator validator)
     {
         _planProvider = planProvider;
         _repository = repository;
