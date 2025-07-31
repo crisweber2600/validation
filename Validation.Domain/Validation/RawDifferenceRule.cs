@@ -1,5 +1,7 @@
+using System;
 namespace Validation.Domain.Validation;
 
+[Obsolete("Use ValidationPlan instead")]
 public class RawDifferenceRule : IValidationRule
 {
     private readonly decimal _threshold;
