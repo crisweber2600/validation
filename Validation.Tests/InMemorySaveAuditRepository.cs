@@ -30,4 +30,13 @@ public class InMemorySaveAuditRepository : ISaveAuditRepository
         if (index >= 0) Audits[index] = entity;
         return Task.CompletedTask;
     }
+
+    public Task<SaveAudit?> GetLastForEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        var audit = Audits
+            .Where(a => a.EntityId == entityId)
+            .OrderByDescending(a => a.Timestamp)
+            .FirstOrDefault();
+        return Task.FromResult<SaveAudit?>(audit);
+    }
 }
