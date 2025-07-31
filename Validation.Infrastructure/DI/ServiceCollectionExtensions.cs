@@ -4,9 +4,11 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
+using System.Linq;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.DI;
 
@@ -45,6 +47,25 @@ public static class ServiceCollectionExtensions
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
         services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+
+        return services;
+    }
+
+    public static IServiceCollection AddValidatorRule<T>(this IServiceCollection services, Func<T, bool> rule)
+    {
+        var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IManualValidatorService));
+        ManualValidatorService validator;
+        if (descriptor?.ImplementationInstance is ManualValidatorService instance)
+        {
+            validator = instance;
+        }
+        else
+        {
+            validator = new ManualValidatorService();
+            services.AddSingleton<IManualValidatorService>(validator);
+        }
+
+        validator.AddRule(rule);
 
         return services;
     }
