@@ -52,16 +52,16 @@ public static class ServiceCollectionExtensions
 
 public static class ValidationFlowServiceCollectionExtensions
 {
-    public class ValidationFlowOptions
+    public class ValidationFlowSetupOptions
     {
         public IServiceCollection Services { get; }
-        public ValidationFlowOptions(IServiceCollection services)
+        public ValidationFlowSetupOptions(IServiceCollection services)
         {
             Services = services;
         }
     }
 
-    public static IServiceCollection SetupDatabase<TContext>(this ValidationFlowOptions options, string connectionString)
+    public static IServiceCollection SetupDatabase<TContext>(this ValidationFlowSetupOptions options, string connectionString)
         where TContext : DbContext
     {
         options.Services.AddDbContext<TContext>(o => o.UseInMemoryDatabase(connectionString));
@@ -70,7 +70,7 @@ public static class ValidationFlowServiceCollectionExtensions
         return options.Services;
     }
 
-    public static IServiceCollection SetupMongoDatabase(this ValidationFlowOptions options, string connectionString, string dbName)
+    public static IServiceCollection SetupMongoDatabase(this ValidationFlowSetupOptions options, string connectionString, string dbName)
     {
         var client = new MongoClient(connectionString);
         var database = client.GetDatabase(dbName);
@@ -79,7 +79,7 @@ public static class ValidationFlowServiceCollectionExtensions
         return options.Services;
     }
 
-    public static IServiceCollection AddValidationFlow<TRule>(this IServiceCollection services, Action<ValidationFlowOptions>? configure = null)
+    public static IServiceCollection AddValidationFlow<TRule>(this IServiceCollection services, Action<ValidationFlowSetupOptions>? configure = null)
         where TRule : class, IValidationRule
     {
         services.AddScoped<IValidationRule, TRule>();
@@ -91,8 +91,39 @@ public static class ValidationFlowServiceCollectionExtensions
         });
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
-        var options = new ValidationFlowOptions(services);
+        var options = new ValidationFlowSetupOptions(services);
         configure?.Invoke(options);
+        return services;
+    }
+
+    public static IServiceCollection AddSaveValidation<T>(this IServiceCollection services)
+    {
+        services.AddScoped<SaveValidationConsumer<T>>();
+        return services;
+    }
+
+    public static IServiceCollection AddSaveCommit<T>(this IServiceCollection services)
+    {
+        services.AddScoped<SaveCommitConsumer<T>>();
+        return services;
+    }
+
+    public static IServiceCollection AddValidationFlows(this IServiceCollection services, ValidationFlowOptions options)
+    {
+        foreach (var flow in options.Flows)
+        {
+            var type = Type.GetType(flow.Type) ?? throw new InvalidOperationException($"Type {flow.Type} not found");
+            if (flow.SaveValidation)
+            {
+                var method = typeof(ServiceCollectionExtensions).GetMethod(nameof(AddSaveValidation))!.MakeGenericMethod(type);
+                method.Invoke(null, new object[] { services });
+            }
+            if (flow.SaveCommit)
+            {
+                var method = typeof(ServiceCollectionExtensions).GetMethod(nameof(AddSaveCommit))!.MakeGenericMethod(type);
+                method.Invoke(null, new object[] { services });
+            }
+        }
         return services;
     }
 }
