@@ -1,12 +1,14 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.DI;
 
@@ -17,6 +19,7 @@ public static class ServiceCollectionExtensions
         Action<IBusRegistrationConfigurator>? configureBus = null)
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.TryAddSingleton<IManualValidatorService, ManualValidatorService>();
 
         services.AddMassTransit(x =>
         {
@@ -36,6 +39,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        services.TryAddSingleton<IManualValidatorService, ManualValidatorService>();
 
         services.AddMassTransit(x =>
         {
@@ -84,6 +88,7 @@ public static class ValidationFlowServiceCollectionExtensions
     {
         services.AddScoped<IValidationRule, TRule>();
         services.AddScoped<SummarisationValidator>();
+        services.TryAddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddMassTransitTestHarness(x =>
         {
             x.AddConsumer<SaveRequestedConsumer>();
