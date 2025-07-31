@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         Action<IBusRegistrationConfigurator>? configureBus = null)
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
         services.AddMassTransit(x =>
         {
@@ -36,6 +37,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
         services.AddMassTransit(x =>
         {
@@ -84,6 +86,7 @@ public static class ValidationFlowServiceCollectionExtensions
     {
         services.AddScoped<IValidationRule, TRule>();
         services.AddScoped<SummarisationValidator>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddMassTransitTestHarness(x =>
         {
             x.AddConsumer<SaveRequestedConsumer>();
