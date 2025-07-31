@@ -31,5 +31,6 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
             Metric = metric
         };
         await _repository.AddAsync(audit, context.CancellationToken);
+        await context.Publish(new SaveValidated(context.Message.Id, isValid, metric));
     }
 }
