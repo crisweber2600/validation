@@ -3,6 +3,7 @@ using MassTransit.Testing;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
+using Validation.Domain.Entities;
 
 namespace Validation.Tests;
 
@@ -20,7 +21,7 @@ public class ValidationWorkflowTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid(), "p"));
             Assert.True(await harness.Consumed.Any<SaveRequested>());
             Assert.True(await consumerHarness.Consumed.Any<SaveRequested>());
             Assert.Single(repository.Audits);

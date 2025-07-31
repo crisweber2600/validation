@@ -5,6 +5,7 @@ using Validation.Infrastructure.Messaging;
 using MassTransit;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.DI;
+using Validation.Domain.Entities;
 
 namespace Validation.Tests;
 
@@ -27,7 +28,7 @@ public class ValidationFlowIntegrationTests
         {
             using var scope = provider.CreateScope();
             var publish = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
-            await publish.Publish(new SaveRequested(Guid.NewGuid()));
+            await publish.Publish(new SaveRequested(Guid.NewGuid(), "p"));
 
             Assert.True(await harness.Published.Any<SaveValidated>());
             var ctx = scope.ServiceProvider.GetRequiredService<TestDbContext>();

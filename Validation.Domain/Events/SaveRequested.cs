@@ -1,3 +1,3 @@
 namespace Validation.Domain.Events;
 
-public record SaveRequested(Guid Id);
+public record SaveRequested(Guid Id, object Payload);
