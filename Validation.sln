@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validation.Infrastructure",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validation.Tests", "Validation.Tests\Validation.Tests.csproj", "{8E5CB3AA-8EDB-4DCD-97BC-F98B4DCDFEC9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValidationFlow.Messages", "ValidationFlow.Messages\ValidationFlow.Messages.csproj", "{34779B27-8743-4769-BDD8-33007D9475AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{8E5CB3AA-8EDB-4DCD-97BC-F98B4DCDFEC9}.Release|x64.Build.0 = Release|Any CPU
 		{8E5CB3AA-8EDB-4DCD-97BC-F98B4DCDFEC9}.Release|x86.ActiveCfg = Release|Any CPU
 		{8E5CB3AA-8EDB-4DCD-97BC-F98B4DCDFEC9}.Release|x86.Build.0 = Release|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Debug|x64.Build.0 = Debug|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Debug|x86.Build.0 = Debug|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Release|x64.ActiveCfg = Release|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Release|x64.Build.0 = Release|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Release|x86.ActiveCfg = Release|Any CPU
+		{34779B27-8743-4769-BDD8-33007D9475AB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
