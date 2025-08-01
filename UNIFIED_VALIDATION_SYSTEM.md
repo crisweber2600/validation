@@ -75,22 +75,11 @@ Event implementations:
 Comprehensive validation system setup with fluent API:
 
 ```csharp
-services.AddSetupValidation()
-    .UseEntityFramework<MyDbContext>()
-    .AddValidationFlow<Item>(flow => flow
-        .EnableSaveValidation()
-        .EnableDeleteValidation()
-        .EnableSoftDelete()
-        .WithThreshold(x => x.Metric, ThresholdType.GreaterThan, 100)
-        .WithValidationTimeout(TimeSpan.FromMinutes(5))
-        .EnableAuditing())
-    .ConfigureMetrics(metrics => metrics
-        .EnableDetailedMetrics()
-        .WithProcessingInterval(TimeSpan.FromMinutes(1)))
-    .ConfigureReliability(reliability => reliability
-        .WithMaxRetries(3)
-        .WithRetryDelay(TimeSpan.FromSeconds(1)))
-    .Build();
+// Simplified setup for a single entity type
+services.AddSetupValidation<Item>(b => b.UseEntityFramework<MyDbContext>(),
+    item => item.Metric,
+    ThresholdType.GreaterThan,
+    100m);
 ```
 
 ### 4. Enhanced Configuration (`ValidationFlowConfig`)
@@ -155,9 +144,12 @@ services.AddValidation(setup => setup
 
 ```csharp
 // Comprehensive validation system
-services.AddSetupValidation()
-    .UseEntityFramework<MyDbContext>(options => 
-        options.UseInMemoryDatabase("ValidationDb"))
+services.AddSetupValidation<Item>(b =>
+    b.UseEntityFramework<MyDbContext>(options =>
+        options.UseInMemoryDatabase("ValidationDb")),
+    item => item.Metric,
+    ThresholdType.GreaterThan,
+    100m)
     
     .AddValidationFlow<Item>(flow => flow
         .EnableSaveValidation()
@@ -183,21 +175,18 @@ services.AddSetupValidation()
     
     .ConfigureAuditing(auditing => auditing
         .EnableDetailedAuditing()
-        .WithRetentionPeriod(TimeSpan.FromDays(365)))
-    
-    .Build();
+        .WithRetentionPeriod(TimeSpan.FromDays(365)));
 ```
 
 ### MongoDB Setup
 
 ```csharp
 // MongoDB-based validation system
-services.AddSetupValidation()
-    .UseMongoDB("mongodb://localhost:27017", "validation")
-    .AddValidationFlow<Item>(flow => flow
-        .EnableSaveValidation()
-        .EnableSoftDelete())
-    .Build();
+services.AddSetupValidation<Item>(b =>
+    b.UseMongoDB("mongodb://localhost:27017", "validation"),
+    item => item.Metric,
+    ThresholdType.GreaterThan,
+    50m);
 ```
 
 ### Event Handling

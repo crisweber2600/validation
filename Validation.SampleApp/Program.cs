@@ -3,10 +3,12 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using Validation.Domain.Entities;
 using Validation.Domain.Validation;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Setup;
+using Validation.Infrastructure.DI;
 
 class Program
 {
@@ -19,28 +21,11 @@ class Program
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                // Configure the unified validation system using the fluent builder
-                services.AddSetupValidation()
-                    .AddValidationFlow<Item>(flow => flow
-                        .EnableSaveValidation()
-                        .EnableDeleteValidation()
-                        .EnableSoftDelete()
-                        .WithThreshold(x => x.Metric, ThresholdType.GreaterThan, 5)
-                        .WithValidationTimeout(TimeSpan.FromMinutes(1))
-                        .EnableAuditing())
-                    
-                    .AddRule<Item>("PositiveValue", item => item.Metric > 0)
-                    .AddRule<Item>("ReasonableRange", item => item.Metric <= 1000)
-                    
-                    .ConfigureMetrics(metrics => metrics
-                        .WithProcessingInterval(TimeSpan.FromSeconds(30))
-                        .EnableDetailedMetrics(false))
-                    
-                    .ConfigureReliability(reliability => reliability
-                        .WithMaxRetries(2)
-                        .WithRetryDelay(TimeSpan.FromMilliseconds(500)))
-                    
-                    .Build();
+                // Configure the unified validation system using the simplified method
+                services.AddSetupValidation<Item>(b => b.UseEntityFramework<MyDbContext>(),
+                    item => item.Metric,
+                    ThresholdType.GreaterThan,
+                    5m);
             })
             .ConfigureLogging(logging =>
             {
@@ -153,4 +138,11 @@ class Program
             logger.LogInformation("  Attempt Number: {AttemptNumber}", retryableEvent.AttemptNumber);
         }
     }
+}
+
+public class MyDbContext : DbContext
+{
+    public MyDbContext(DbContextOptions<MyDbContext> options) : base(options) { }
+
+    public DbSet<Item> Items { get; set; } = null!;
 }

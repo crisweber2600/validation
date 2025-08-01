@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 using MongoDB.Driver;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.DI;
@@ -25,6 +26,9 @@ public class SetupValidationBuilder
     private bool _auditingEnabled = true;
     private bool _reliabilityEnabled = true;
     private bool _observabilityEnabled = true;
+    private bool _useMongoDb = false;
+    private IMongoDatabase? _mongoDatabase;
+    private Action<IBusRegistrationConfigurator>? _busConfigurator;
 
     public SetupValidationBuilder(IServiceCollection services)
     {
@@ -37,6 +41,7 @@ public class SetupValidationBuilder
     public SetupValidationBuilder UseEntityFramework<TContext>(Action<DbContextOptionsBuilder>? configureOptions = null)
         where TContext : DbContext
     {
+        _useMongoDb = false;
         _customRegistrations.Add(services =>
         {
             if (configureOptions != null)
@@ -57,11 +62,12 @@ public class SetupValidationBuilder
     /// </summary>
     public SetupValidationBuilder UseMongoDB(string connectionString, string databaseName)
     {
+        _useMongoDb = true;
+        var client = new MongoClient(connectionString);
+        _mongoDatabase = client.GetDatabase(databaseName);
         _customRegistrations.Add(services =>
         {
-            var client = new MongoClient(connectionString);
-            var database = client.GetDatabase(databaseName);
-            services.AddSingleton(database);
+            services.AddSingleton(_mongoDatabase);
         });
         return this;
     }
@@ -191,6 +197,12 @@ public class SetupValidationBuilder
         return this;
     }
 
+    internal SetupValidationBuilder AddBusConfiguration(Action<IBusRegistrationConfigurator> configure)
+    {
+        _busConfigurator += configure;
+        return this;
+    }
+
     /// <summary>
     /// Build and register all validation services
     /// </summary>
@@ -199,7 +211,14 @@ public class SetupValidationBuilder
         // Register core infrastructure
         if (_metricsEnabled || _auditingEnabled || _reliabilityEnabled || _observabilityEnabled)
         {
-            _services.AddValidationInfrastructure();
+            if (_useMongoDb && _mongoDatabase != null)
+            {
+                _services.AddMongoValidationInfrastructure(_mongoDatabase, _busConfigurator);
+            }
+            else
+            {
+                _services.AddValidationInfrastructure(_busConfigurator);
+            }
         }
 
         // Register validation flows

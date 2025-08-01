@@ -15,6 +15,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Setup;
 
 namespace Validation.Infrastructure.DI;
 
@@ -176,6 +177,43 @@ public static class ServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
 
         return services;
+    }
+
+    public static IServiceCollection AddSetupValidation<T>(
+        this IServiceCollection services,
+        Action<SetupValidationBuilder> configure,
+        Func<T, decimal> metricSelector,
+        ThresholdType thresholdType,
+        decimal thresholdValue)
+    {
+        var builder = services.AddSetupValidation();
+        configure(builder);
+
+        builder.AddServices(svc =>
+        {
+            svc.AddSingleton<IValidationPlanProvider>(sp =>
+            {
+                var provider = new InMemoryValidationPlanProvider();
+                var plan = new ValidationPlan(o => metricSelector((T)o), thresholdType, thresholdValue);
+                provider.AddPlan<T>(plan);
+                return provider;
+            });
+
+            svc.AddScoped<SummarisationValidator>();
+            svc.AddScoped<SaveValidationConsumer<T>>();
+            svc.AddScoped<SaveCommitConsumer<T>>();
+
+            svc.AddLogging(b => b.AddSerilog());
+            svc.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+        });
+
+        builder.AddBusConfiguration(x =>
+        {
+            x.AddConsumer<SaveValidationConsumer<T>>();
+            x.AddConsumer<SaveCommitConsumer<T>>();
+        });
+
+        return builder.Build();
     }
 }
 
