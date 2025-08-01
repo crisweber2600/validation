@@ -1,4 +1,5 @@
 using MassTransit;
+using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
@@ -7,6 +8,7 @@ using Serilog;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.DI;
 
@@ -18,6 +20,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
         services.AddMassTransit(x =>
         {
@@ -38,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
         services.AddMassTransit(x =>
         {
@@ -48,6 +52,23 @@ public static class ServiceCollectionExtensions
 
         services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
 
+        return services;
+    }
+
+    public static IServiceCollection AddValidatorRule<T>(this IServiceCollection services, Func<T, bool> rule)
+    {
+        var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IManualValidatorService));
+        ManualValidatorService svc;
+        if (descriptor?.ImplementationInstance is ManualValidatorService existing)
+        {
+            svc = existing;
+        }
+        else
+        {
+            svc = new ManualValidatorService();
+            services.AddSingleton<IManualValidatorService>(svc);
+        }
+        svc.AddRule(rule);
         return services;
     }
 }
@@ -86,6 +107,7 @@ public static class ValidationFlowServiceCollectionExtensions
     {
         services.AddScoped<IValidationRule, TRule>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
         services.AddMassTransitTestHarness(x =>
         {
