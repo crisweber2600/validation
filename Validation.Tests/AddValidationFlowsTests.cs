@@ -18,6 +18,8 @@ public class AddValidationFlowsTests
                 "Type": "Validation.Domain.Entities.Item, Validation.Domain",
                 "SaveValidation": true,
                 "SaveCommit": true,
+                "DeleteValidation": true,
+                "DeleteCommit": true,
                 "MetricProperty": "Metric",
                 "ThresholdType": 1,
                 "ThresholdValue": 0.2
@@ -36,12 +38,14 @@ public class AddValidationFlowsTests
                 Type = element.GetProperty("Type").GetString()!,
                 SaveValidation = element.GetProperty("SaveValidation").GetBoolean(),
                 SaveCommit = element.GetProperty("SaveCommit").GetBoolean(),
+                DeleteValidation = element.TryGetProperty("DeleteValidation", out var delValEl) && delValEl.GetBoolean(),
+                DeleteCommit = element.TryGetProperty("DeleteCommit", out var delComEl) && delComEl.GetBoolean(),
                 MetricProperty = element.GetProperty("MetricProperty").GetString(),
-                ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number 
-                    ? (ThresholdType?)thresholdTypeElement.GetInt32() 
+                ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number
+                    ? (ThresholdType?)thresholdTypeElement.GetInt32()
                     : null,
-                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number 
-                    ? thresholdValueElement.GetDecimal() 
+                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number
+                    ? thresholdValueElement.GetDecimal()
                     : null
             });
         }
@@ -57,10 +61,41 @@ public class AddValidationFlowsTests
         // Verify that the consumers were registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.NotNull(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
         
         // Verify that validation plan provider was configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         Assert.NotNull(planProvider);
+    }
+
+    [Fact]
+    public void AddValidationFlows_registers_delete_consumers()
+    {
+        var configs = new List<ValidationFlowConfig>
+        {
+            new ValidationFlowConfig
+            {
+                Type = "Validation.Domain.Entities.Item, Validation.Domain",
+                SaveValidation = false,
+                SaveCommit = false,
+                DeleteValidation = true,
+                DeleteCommit = true
+            }
+        };
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("validation-flows-delete"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
     }
 
     [Fact]
@@ -88,6 +123,8 @@ public class AddValidationFlowsTests
         // Verify that only SaveValidationConsumer was registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.Null(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
         
         // Verify that validation plan provider was still configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
