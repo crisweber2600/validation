@@ -18,6 +18,16 @@ public class MongoSaveAuditRepository : ISaveAuditRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
+        await HardDeleteAsync(id, ct);
+    }
+
+    public async Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        await HardDeleteAsync(id, ct);
+    }
+
+    public async Task HardDeleteAsync(Guid id, CancellationToken ct = default)
+    {
         await _collection.DeleteOneAsync(x => x.Id == id, ct);
     }
 

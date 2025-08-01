@@ -33,6 +33,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DeleteReliabilityOptions>();
         services.AddScoped<DeletePipelineReliabilityPolicy>();
         services.AddScoped<ReliableMessagePublisher>();
+        services.AddScoped(typeof(IGenericRepository<>), typeof(EfGenericRepository<>));
 
         // Add metrics services
         services.AddSingleton<IMetricsCollector, MetricsCollector>();
@@ -71,6 +72,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddScoped(typeof(IGenericRepository<>), typeof(MongoGenericRepository<>));
 
         services.AddMassTransit(x =>
         {

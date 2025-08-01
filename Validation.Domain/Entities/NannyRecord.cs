@@ -4,9 +4,8 @@ using Validation.Domain.Events;
 
 namespace Validation.Domain.Entities;
 
-public class NannyRecord : EntityWithEvents
+public class NannyRecord : BaseEntity
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
     
     [Required]
     public string Name { get; private set; } = string.Empty;

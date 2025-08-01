@@ -31,7 +31,15 @@ public class EfGenericRepository<T> : IGenericRepository<T> where T : class
 
     public async Task<T?> GetAsync(Guid id, CancellationToken ct = default)
     {
-        return await _set.FindAsync(new object?[] { id }, ct);
+        var entity = await _set.FindAsync(new object?[] { id }, ct);
+        if (entity == null) return null;
+        var prop = typeof(T).GetProperty("Validated");
+        if (prop != null && prop.PropertyType == typeof(bool))
+        {
+            var value = (bool)prop.GetValue(entity)!;
+            if (!value) return null;
+        }
+        return entity;
     }
 
     public Task UpdateAsync(T entity, CancellationToken ct = default)
@@ -41,6 +49,27 @@ public class EfGenericRepository<T> : IGenericRepository<T> where T : class
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        await HardDeleteAsync(id, ct);
+    }
+
+    public async Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _set.FindAsync(new object?[] { id }, ct);
+        if (entity == null) return;
+        var prop = typeof(T).GetProperty("Validated");
+        if (prop != null && prop.PropertyType == typeof(bool))
+        {
+            prop.SetValue(entity, false);
+            _set.Update(entity);
+        }
+        else
+        {
+            await HardDeleteAsync(id, ct);
+        }
+    }
+
+    public async Task HardDeleteAsync(Guid id, CancellationToken ct = default)
     {
         var entity = await _set.FindAsync(new object?[] { id }, ct);
         if (entity != null)

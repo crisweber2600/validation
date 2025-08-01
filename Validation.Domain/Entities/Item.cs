@@ -2,9 +2,8 @@ using Validation.Domain.Events;
 
 namespace Validation.Domain.Entities;
 
-public class Item : EntityWithEvents
+public class Item : BaseEntity
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
     public decimal Metric { get; private set; }
 
     public Item(decimal metric)

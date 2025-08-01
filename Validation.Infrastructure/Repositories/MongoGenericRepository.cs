@@ -29,7 +29,15 @@ public class MongoGenericRepository<T> : IGenericRepository<T>
     public async Task<T?> GetAsync(Guid id, CancellationToken ct = default)
     {
         var filter = Builders<T>.Filter.Eq("Id", id);
-        return await _collection.Find(filter).FirstOrDefaultAsync(ct);
+        var entity = await _collection.Find(filter).FirstOrDefaultAsync(ct);
+        if (entity == null) return default;
+        var prop = typeof(T).GetProperty("Validated");
+        if (prop != null && prop.PropertyType == typeof(bool))
+        {
+            var value = (bool)prop.GetValue(entity)!;
+            if (!value) return default;
+        }
+        return entity;
     }
 
     public async Task UpdateAsync(T entity, CancellationToken ct = default)
@@ -42,6 +50,26 @@ public class MongoGenericRepository<T> : IGenericRepository<T>
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        await HardDeleteAsync(id, ct);
+    }
+
+    public async Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var filter = Builders<T>.Filter.Eq("Id", id);
+        var update = Builders<T>.Update.Set("Validated", false);
+        var prop = typeof(T).GetProperty("Validated");
+        if (prop != null && prop.PropertyType == typeof(bool))
+        {
+            await _collection.UpdateOneAsync(filter, update, cancellationToken: ct);
+        }
+        else
+        {
+            await HardDeleteAsync(id, ct);
+        }
+    }
+
+    public async Task HardDeleteAsync(Guid id, CancellationToken ct = default)
     {
         var filter = Builders<T>.Filter.Eq("Id", id);
         await _collection.DeleteOneAsync(filter, ct);

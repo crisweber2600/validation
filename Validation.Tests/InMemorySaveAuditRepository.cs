@@ -19,6 +19,18 @@ public class InMemorySaveAuditRepository : ISaveAuditRepository
         return Task.CompletedTask;
     }
 
+    public Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Audits.RemoveAll(a => a.Id == id);
+        return Task.CompletedTask;
+    }
+
+    public Task HardDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Audits.RemoveAll(a => a.Id == id);
+        return Task.CompletedTask;
+    }
+
     public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
     {
         return Task.FromResult<SaveAudit?>(Audits.FirstOrDefault(a => a.Id == id));

@@ -16,6 +16,7 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
     private readonly SummarisationValidator _validator;
     private readonly DeletePipelineReliabilityPolicy _reliabilityPolicy;
     private readonly ISaveAuditRepository _auditRepository;
+    private readonly IRepository<T> _repository;
     private readonly ILogger<ReliableDeleteValidationConsumer<T>> _logger;
     private static readonly ActivitySource ActivitySource = new("Validation.Infrastructure.Messaging");
 
@@ -24,12 +25,14 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         SummarisationValidator validator,
         DeletePipelineReliabilityPolicy reliabilityPolicy,
         ISaveAuditRepository auditRepository,
+        IRepository<T> repository,
         ILogger<ReliableDeleteValidationConsumer<T>> logger)
     {
         _planProvider = planProvider;
         _validator = validator;
         _reliabilityPolicy = reliabilityPolicy;
         _auditRepository = auditRepository;
+        _repository = repository;
         _logger = logger;
     }
 
@@ -110,6 +113,7 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         // Publish validation result
         if (isValid)
         {
+            await _repository.SoftDeleteAsync(context.Message.Id, cancellationToken);
             await context.Publish(new DeleteValidated(context.Message.Id, deleteAudit.Id, typeof(T).Name),
                 cancellationToken);
         }
