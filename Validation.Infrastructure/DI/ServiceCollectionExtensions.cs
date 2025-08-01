@@ -55,6 +55,15 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddValidatorService(this IServiceCollection services)
+    {
+        if (!services.Any(d => d.ServiceType == typeof(IManualValidatorService)))
+        {
+            services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        }
+        return services;
+    }
+
     public static IServiceCollection AddValidatorRule<T>(this IServiceCollection services, Func<T, bool> rule)
     {
         var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IManualValidatorService));
