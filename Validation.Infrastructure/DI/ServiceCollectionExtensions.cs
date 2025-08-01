@@ -107,6 +107,44 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection SetupValidation(this IServiceCollection services, Action<SetupValidationBuilder> configure)
+    {
+        var builder = new SetupValidationBuilder(services);
+        configure(builder);
+        return services;
+    }
+
+    public static IServiceCollection AddSetupValidation<T>(
+        this IServiceCollection services,
+        Action<SetupValidationBuilder> configure,
+        Func<T, decimal> metricSelector,
+        ThresholdType thresholdType,
+        decimal thresholdValue)
+    {
+        services.SetupValidation(configure);
+
+        var provider = new InMemoryValidationPlanProvider();
+        provider.AddPlan<T>(new ValidationPlan(o => metricSelector((T)o), thresholdType, thresholdValue));
+        services.AddSingleton<IValidationPlanProvider>(provider);
+
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddScoped<SummarisationValidator>();
+
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveValidationConsumer<T>>();
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        services.AddScoped<SaveValidationConsumer<T>>();
+        services.AddScoped<SaveCommitConsumer<T>>();
+
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+
+        return services;
+    }
+
     public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
     {
         // Set up validation plan provider with configurations
