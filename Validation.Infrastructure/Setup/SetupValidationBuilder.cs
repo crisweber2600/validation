@@ -6,10 +6,12 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using MongoDB.Driver;
 using Validation.Domain.Validation;
+using Validation.Domain.Events;
 using Validation.Infrastructure.DI;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Auditing;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.Setup;
 
@@ -308,6 +310,39 @@ public class ValidationFlowBuilder<T>
             _config.ThresholdType = thresholdType;
             _config.ThresholdValue = thresholdValue;
         }
+        return this;
+    }
+
+    public ValidationFlowBuilder<T> WithValidationRule(string name, string description, bool isRequired = false, int priority = 100)
+    {
+        _config.ValidationRules.Add(new ValidationRuleConfig
+        {
+            Name = name,
+            Description = description,
+            IsRequired = isRequired,
+            Priority = priority,
+            Enabled = true
+        });
+        return this;
+    }
+
+    public ValidationFlowBuilder<T> EnableCircuitBreaker(int threshold = 5, TimeSpan? timeout = null)
+    {
+        _config.EnableCircuitBreaker = true;
+        _config.CircuitBreakerThreshold = threshold;
+        _config.CircuitBreakerTimeout = timeout ?? TimeSpan.FromMinutes(1);
+        return this;
+    }
+
+    public ValidationFlowBuilder<T> WithPriority(string priority)
+    {
+        _config.Priority = priority;
+        return this;
+    }
+
+    public ValidationFlowBuilder<T> WithCustomConfiguration(string key, object value)
+    {
+        _config.CustomConfiguration[key] = value;
         return this;
     }
 

@@ -8,6 +8,8 @@ using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
 using Validation.Domain.Validation;
+using Validation.Domain.Events;
+using Validation.Domain.Repositories;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
@@ -15,6 +17,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.DI;
 
@@ -28,6 +31,17 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
+
+        // Add unified event hub
+        services.AddSingleton<IValidationEventHub, ValidationEventHub>();
+
+        // Add pipeline orchestrators
+        services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
+        services.AddScoped<IPipelineOrchestrator<SummarisationInput>, SummarisationPipelineOrchestrator>();
+        services.AddScoped<ValidationFlowOrchestrator>();
+
+        // Add repository services (generic registration)
+        services.AddScoped(typeof(ISummaryRecordRepository<>), typeof(EfCoreSummaryRecordRepository<>));
 
         // Add reliability services
         services.AddSingleton<DeleteReliabilityOptions>();
@@ -45,9 +59,9 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
-            // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
+            // Register the enhanced consumers without generic definition types to avoid MassTransit issues
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
             
             configureBus?.Invoke(x);
         });
@@ -71,6 +85,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+
+        // Add unified event hub
+        services.AddSingleton<IValidationEventHub, ValidationEventHub>();
+
+        // Add pipeline orchestrators
+        services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
+        services.AddScoped<IPipelineOrchestrator<SummarisationInput>, SummarisationPipelineOrchestrator>();
+        services.AddScoped<ValidationFlowOrchestrator>();
+
+        // Add MongoDB repository services
+        services.AddScoped(typeof(ISummaryRecordRepository<>), typeof(MongoSummaryRecordRepository<>));
 
         services.AddMassTransit(x =>
         {
@@ -137,6 +162,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+
+        // Register flow configs for ValidationFlowOrchestrator
+        services.AddSingleton<IEnumerable<ValidationFlowConfig>>(configs);
 
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
