@@ -51,33 +51,30 @@ public class DeletePipelineReliabilityPolicy
             {
                 lastException = ex;
                 attempts++;
-                
-                if (ShouldRetry(ex, attempts - 1))
-                {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
 
-                    _logger.LogWarning(ex, 
+                var retryable = ShouldRetry(ex, attempts - 1);
+
+                if (retryable && attempts < _options.MaxRetryAttempts)
+                {
+                    _logger.LogWarning(ex,
                         "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
                         attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
 
-                    if (attempts < _options.MaxRetryAttempts)
-                    {
-                        await Task.Delay(_options.RetryDelayMs, cancellationToken);
-                        continue;
-                    }
-                    else
-                    {
-                        // Retryable exception but retries exhausted - this will be wrapped below
-                        break;
-                    }
+                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
+                    continue;
                 }
-                else
+
+                Interlocked.Increment(ref _consecutiveFailures);
+                _lastFailureTime = DateTime.UtcNow;
+
+                if (!retryable)
                 {
-                    // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
                     throw;
                 }
+
+                // Retryable exception but retries exhausted - this will be wrapped below
+                break;
             }
         }
 
@@ -108,14 +105,10 @@ public class DeletePipelineReliabilityPolicy
 
     private bool ShouldRetry(Exception exception, int attempt)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
-        // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;
 
-        return true;
+        return attempt < _options.MaxRetryAttempts;
     }
 
     private bool IsCircuitOpen()

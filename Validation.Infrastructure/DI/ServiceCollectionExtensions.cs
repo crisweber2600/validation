@@ -18,6 +18,7 @@ using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
 using Validation.Infrastructure.Pipeline;
+using Validation.Infrastructure.Providers;
 
 namespace Validation.Infrastructure.DI;
 
@@ -203,6 +204,20 @@ public static class ServiceCollectionExtensions
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
 
+        return services;
+    }
+
+    public static IServiceCollection AddReflectionBasedEntityIdProvider(
+        this IServiceCollection services, params string[] priority)
+    {
+        services.AddSingleton<IEntityIdProvider>(new ReflectionBasedEntityIdProvider(priority));
+        return services;
+    }
+
+    public static IServiceCollection WithStaticApplicationName(
+        this IServiceCollection services, string name)
+    {
+        services.AddSingleton<IApplicationNameProvider>(new StaticApplicationNameProvider(name));
         return services;
     }
 }
