@@ -52,32 +52,30 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
-                {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
+                var shouldRetry = ShouldRetry(ex, attempts - 1);
+                var maxReached = attempts >= _options.MaxRetryAttempts;
 
-                    _logger.LogWarning(ex, 
+                if (shouldRetry && !maxReached)
+                {
+                    _logger.LogWarning(ex,
                         "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
                         attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
 
-                    if (attempts < _options.MaxRetryAttempts)
-                    {
-                        await Task.Delay(_options.RetryDelayMs, cancellationToken);
-                        continue;
-                    }
-                    else
-                    {
-                        // Retryable exception but retries exhausted - this will be wrapped below
-                        break;
-                    }
+                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
+                    continue;
                 }
-                else
+
+                // record failure for circuit breaker
+                Interlocked.Increment(ref _consecutiveFailures);
+                _lastFailureTime = DateTime.UtcNow;
+
+                if (maxReached)
                 {
-                    // Non-retryable exception - rethrow immediately
-                    _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
-                    throw;
+                    break;
                 }
+
+                _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
+                throw;
             }
         }
 
