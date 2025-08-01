@@ -3,6 +3,7 @@ using MassTransit.Testing;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 
@@ -13,7 +14,7 @@ public class ValidationWorkflowTests
     {
         var repository = new InMemorySaveAuditRepository();
         var rule = new RawDifferenceRule(100); // always valid
-        var consumer = new SaveRequestedConsumer(repository, rule);
+        var consumer = new SaveRequestedConsumer(repository, rule, new TestLogger<SaveRequestedConsumer>(), new ActivitySource("Validation.Infrastructure"));
 
         var harness = new InMemoryTestHarness();
         var consumerHarness = harness.Consumer(() => consumer);

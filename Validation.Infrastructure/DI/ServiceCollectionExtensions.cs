@@ -10,11 +10,19 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using System.Diagnostics;
 
 namespace Validation.Infrastructure.DI;
 
+/// <summary>
+/// Extension methods for configuring validation infrastructure services, logging and tracing.
+/// Logging is configured via Serilog and consumers emit spans using the registered ActivitySource.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers EF Core repositories, MassTransit and telemetry for validation flows.
+    /// </summary>
     public static IServiceCollection AddValidationInfrastructure(
         this IServiceCollection services,
         Action<IBusRegistrationConfigurator>? configureBus = null)
@@ -23,6 +31,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
+        const string sourceName = "Validation.Infrastructure";
+
         services.AddMassTransit(x =>
         {
             configureBus?.Invoke(x);
@@ -30,7 +40,10 @@ public static class ServiceCollectionExtensions
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        services.AddSingleton(new ActivitySource(sourceName));
+
+        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation()
+            .AddSource(sourceName));
 
         return services;
     }
@@ -49,9 +62,14 @@ public static class ServiceCollectionExtensions
             configureBus?.Invoke(x);
         });
 
+        const string sourceName = "Validation.Infrastructure";
+
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        services.AddSingleton(new ActivitySource(sourceName));
+
+        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation()
+            .AddSource(sourceName));
 
         return services;
     }
@@ -130,8 +148,11 @@ public static class ServiceCollectionExtensions
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
         });
 
+        const string sourceName = "Validation.Infrastructure";
         services.AddLogging(b => b.AddSerilog());
-        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+        services.AddSingleton(new ActivitySource(sourceName));
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation()
+            .AddSource(sourceName));
 
         return services;
     }
@@ -178,8 +199,11 @@ public static class ValidationFlowServiceCollectionExtensions
             x.AddConsumer<SaveRequestedConsumer>();
             x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
         });
+        const string sourceName = "Validation.Infrastructure";
         services.AddLogging(b => b.AddSerilog());
-        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+        services.AddSingleton(new ActivitySource(sourceName));
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation()
+            .AddSource(sourceName));
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
         return services;

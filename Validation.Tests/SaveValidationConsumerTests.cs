@@ -4,6 +4,7 @@ using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Domain.Entities;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 
@@ -20,7 +21,7 @@ public class SaveValidationConsumerTests
     public async Task Publish_SaveValidated_after_processing()
     {
         var repository = new InMemorySaveAuditRepository();
-        var consumer = new SaveValidationConsumer<Item>(new TestPlanProvider(), repository, new SummarisationValidator());
+        var consumer = new SaveValidationConsumer<Item>(new TestPlanProvider(), repository, new SummarisationValidator(), new TestLogger<SaveValidationConsumer<Item>>(), new ActivitySource("Validation.Infrastructure"));
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);
