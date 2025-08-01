@@ -74,9 +74,12 @@ public class DeletePipelineReliabilityPolicy
                 }
                 else
                 {
-                    // Non-retryable exception - rethrow immediately
-                    _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
-                    throw;
+                    if (ex is ArgumentException or ArgumentNullException)
+                    {
+                        _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
+                        throw;
+                    }
+                    break;
                 }
             }
         }
@@ -92,7 +95,7 @@ public class DeletePipelineReliabilityPolicy
         Func<CancellationToken, T> operation,
         CancellationToken cancellationToken = default)
     {
-        return await ExecuteAsync<T>(ct => Task.FromResult(operation(ct)), cancellationToken);
+        return await ExecuteAsync<T>(ct => Task.Run(() => operation(ct), ct), cancellationToken);
     }
 
     public async Task ExecuteAsync(

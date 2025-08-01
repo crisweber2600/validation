@@ -1,7 +1,7 @@
 using MassTransit;
 using MassTransit.Testing;
 using Validation.Domain.Entities;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
@@ -68,7 +68,7 @@ public class SavePipelineTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>("TestApp", nameof(Item), Guid.NewGuid(), new Item(0)));
 
             Assert.True(await harness.Published.Any<SaveValidated<Item>>());
             Assert.False(await harness.Published.Any<SaveCommitFault<Item>>());
@@ -90,7 +90,7 @@ public class SavePipelineTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>("TestApp", nameof(Item), Guid.NewGuid(), new Item(0)));
 
             Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
         }
@@ -110,9 +110,9 @@ public class SavePipelineTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>("TestApp", nameof(Item), Guid.NewGuid(), new Item(0)));
 
-            Assert.True(await validationConsumer.Consumed.Any<SaveRequested>());
+            Assert.True(await validationConsumer.Consumed.Any<SaveRequested<Item>>());
             Assert.True(await harness.Published.Any<SaveValidated<Item>>());
         }
         finally

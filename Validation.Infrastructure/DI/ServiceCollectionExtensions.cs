@@ -46,8 +46,8 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
             
             configureBus?.Invoke(x);
         });
@@ -217,7 +217,7 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddScoped<SummarisationValidator>();
         services.AddMassTransitTestHarness(x =>
         {
-            x.AddConsumer<SaveRequestedConsumer>();
+            x.AddConsumer<SaveRequestedConsumer<Validation.Domain.Entities.Item>>();
             x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
         });
         services.AddLogging(b => b.AddSerilog());
