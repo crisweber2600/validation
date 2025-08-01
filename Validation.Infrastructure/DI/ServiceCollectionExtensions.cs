@@ -46,9 +46,9 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
+
             configureBus?.Invoke(x);
         });
 
@@ -104,6 +104,23 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddValidatorService(this IServiceCollection services)
     {
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    public static IServiceCollection AddMetricsPipeline(this IServiceCollection services, Action<PipelineWorkerOptions>? configure = null)
+    {
+        services.AddSingleton<ISummarisationService, InMemorySummarisationService>();
+        services.AddSingleton<IMetricGatherer, InMemoryMetricGatherer>();
+        services.AddSingleton<PipelineOrchestrator>();
+        services.AddSingleton(sp =>
+        {
+            var options = new PipelineWorkerOptions();
+            configure?.Invoke(options);
+            return options;
+        });
+        services.AddHostedService<PipelineWorker>();
+        services.AddScoped<SummarisationValidator>();
+        services.AddSingleton<IMetricsCollector, MetricsCollector>();
         return services;
     }
 

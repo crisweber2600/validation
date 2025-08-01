@@ -52,32 +52,29 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
+                var retryable = ShouldRetry(ex);
+
+                _logger.LogWarning(ex,
+                    "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}.",
+                    attempts, _options.MaxRetryAttempts);
+
+                if (retryable && attempts < _options.MaxRetryAttempts)
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
-
-                    _logger.LogWarning(ex, 
-                        "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
-                        attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
-
-                    if (attempts < _options.MaxRetryAttempts)
-                    {
-                        await Task.Delay(_options.RetryDelayMs, cancellationToken);
-                        continue;
-                    }
-                    else
-                    {
-                        // Retryable exception but retries exhausted - this will be wrapped below
-                        break;
-                    }
+                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
+                    continue;
                 }
-                else
+
+                Interlocked.Increment(ref _consecutiveFailures);
+                _lastFailureTime = DateTime.UtcNow;
+
+                if (!retryable)
                 {
-                    // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
                     throw;
                 }
+
+                // Retries exhausted or circuit to open
+                break;
             }
         }
 
@@ -106,11 +103,8 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;
