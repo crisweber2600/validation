@@ -54,7 +54,6 @@ public class DeletePipelineReliabilityPolicy
                 
                 if (ShouldRetry(ex, attempts - 1))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
 
                     _logger.LogWarning(ex, 
@@ -74,15 +73,18 @@ public class DeletePipelineReliabilityPolicy
                 }
                 else
                 {
-                    // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
-                    throw;
+                    if (ex is ArgumentException or ArgumentNullException)
+                        throw;
+                    break;
                 }
             }
         }
 
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);
-        
+
+        Interlocked.Increment(ref _consecutiveFailures);
+
         // Always wrap retryable exceptions that exhausted retries in DeletePipelineReliabilityException
         throw new DeletePipelineReliabilityException(
             $"Delete pipeline operation failed after {attempts} attempts", lastException);
