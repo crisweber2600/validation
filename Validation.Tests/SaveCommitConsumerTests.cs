@@ -13,7 +13,8 @@ public class SaveCommitConsumerTests
     private class FailingRepository : ISaveAuditRepository
     {
         public Task AddAsync(SaveAudit entity, CancellationToken ct = default) => Task.CompletedTask;
-        public Task DeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SoftDeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
+        public Task HardDeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
         public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(new SaveAudit { Id = id, EntityId = id });
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default) => throw new Exception("fail");
         public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);

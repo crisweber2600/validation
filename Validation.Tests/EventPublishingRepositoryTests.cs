@@ -27,7 +27,7 @@ public class EventPublishingRepositoryTests
     }
 
     [Fact]
-    public async Task DeleteAsync_publishes_event()
+    public async Task SoftDeleteAsync_publishes_event()
     {
         var harness = new InMemoryTestHarness();
 
@@ -36,7 +36,7 @@ public class EventPublishingRepositoryTests
         {
             var repository = new EventPublishingRepository<Item>(harness.Bus);
             var id = Guid.NewGuid();
-            await repository.DeleteAsync(id);
+            await repository.SoftDeleteAsync(id);
             Assert.True(await harness.Published.Any<DeleteRequested>());
         }
         finally

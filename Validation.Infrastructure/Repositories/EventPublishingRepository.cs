@@ -18,7 +18,12 @@ public class EventPublishingRepository<T> : IEntityRepository<T>
         return _bus.Publish(new SaveRequested<T>(entity, app), ct);
     }
 
-    public Task DeleteAsync(Guid id, string? app = null, CancellationToken ct = default)
+    public Task SoftDeleteAsync(Guid id, string? app = null, CancellationToken ct = default)
+    {
+        return _bus.Publish(new DeleteRequested(id), ct);
+    }
+
+    public Task HardDeleteAsync(Guid id, string? app = null, CancellationToken ct = default)
     {
         return _bus.Publish(new DeleteRequested(id), ct);
     }

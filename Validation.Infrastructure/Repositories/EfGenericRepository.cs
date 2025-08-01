@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Validation.Domain.Entities;
 using Validation.Domain.Validation;
 
 namespace Validation.Infrastructure.Repositories;
 
-public class EfGenericRepository<T> : IGenericRepository<T> where T : class
+public class EfGenericRepository<T> : IGenericRepository<T> where T : BaseEntity
 {
     private readonly DbContext _context;
     private readonly DbSet<T> _set;
@@ -31,7 +32,7 @@ public class EfGenericRepository<T> : IGenericRepository<T> where T : class
 
     public async Task<T?> GetAsync(Guid id, CancellationToken ct = default)
     {
-        return await _set.FindAsync(new object?[] { id }, ct);
+        return await _set.FirstOrDefaultAsync(e => e.Id == id && e.Validated, ct);
     }
 
     public Task UpdateAsync(T entity, CancellationToken ct = default)
@@ -40,7 +41,17 @@ public class EfGenericRepository<T> : IGenericRepository<T> where T : class
         return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    public async Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _set.FindAsync(new object?[] { id }, ct);
+        if (entity != null)
+        {
+            entity.Validated = false;
+            _set.Update(entity);
+        }
+    }
+
+    public async Task HardDeleteAsync(Guid id, CancellationToken ct = default)
     {
         var entity = await _set.FindAsync(new object?[] { id }, ct);
         if (entity != null)
