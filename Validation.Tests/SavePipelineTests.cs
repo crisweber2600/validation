@@ -3,6 +3,7 @@ using MassTransit.Testing;
 using Validation.Domain.Entities;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
+using Validation.Domain.Providers;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
@@ -11,6 +12,18 @@ namespace Validation.Tests;
 
 public class SavePipelineTests
 {
+    private class MockEntityIdProvider : IEntityIdProvider
+    {
+        public Guid GetEntityId<T>(T entity) => Guid.NewGuid();
+        public bool CanHandle<T>() => true;
+    }
+
+    private class MockApplicationNameProvider : IApplicationNameProvider
+    {
+        public string GetApplicationName() => "TestApp";
+        public string GetApplicationName(string? context) => "TestApp";
+    }
+
     private class TestPlanProvider : IValidationPlanProvider
     {
         public IEnumerable<IValidationRule> GetRules<T>() => Array.Empty<IValidationRule>();
@@ -36,25 +49,44 @@ public class SavePipelineTests
         
         public Task DeleteAsync(Guid id, CancellationToken ct = default)
         {
-            Audits.RemoveAll(a => a.Id == id);
+            var idString = id.ToString();
+            Audits.RemoveAll(a => a.Id == idString);
             return Task.CompletedTask;
         }
         
         public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
         {
-            return Task.FromResult<SaveAudit?>(Audits.FirstOrDefault(a => a.Id == id));
+            var idString = id.ToString();
+            return Task.FromResult<SaveAudit?>(Audits.FirstOrDefault(a => a.Id == idString));
         }
         
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default)
             => throw new Exception("Repository failure for testing");
         
-        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+        public Task<SaveAudit?> GetLastAsync(string entityId, CancellationToken ct = default)
         {
             var audit = Audits.Where(a => a.EntityId == entityId)
                 .OrderByDescending(a => a.Timestamp)
                 .FirstOrDefault();
             return Task.FromResult<SaveAudit?>(audit);
         }
+        
+        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+        {
+            return GetLastAsync(entityId.ToString(), ct);
+        }
+        
+        public Task<IEnumerable<SaveAudit>> GetByEntityTypeAsync(string entityType, CancellationToken ct = default) 
+            => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        
+        public Task<IEnumerable<SaveAudit>> GetByApplicationAsync(string applicationName, CancellationToken ct = default) 
+            => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        
+        public Task<IEnumerable<SaveAudit>> GetByTimeRangeAsync(DateTime from, DateTime to, CancellationToken ct = default) 
+            => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        
+        public Task<IEnumerable<SaveAudit>> GetByCorrelationIdAsync(string correlationId, CancellationToken ct = default) 
+            => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
     }
 
     [Fact]
@@ -62,7 +94,7 @@ public class SavePipelineTests
     {
         var repo = new InMemorySaveAuditRepository();
         var harness = new InMemoryTestHarness();
-        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator(), new MockEntityIdProvider(), new MockApplicationNameProvider()));
         harness.Consumer(() => new SaveCommitConsumer<Item>(repo));
 
         await harness.Start();
@@ -84,7 +116,7 @@ public class SavePipelineTests
     {
         var repo = new FailingRepository();
         var harness = new InMemoryTestHarness();
-        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator(), new MockEntityIdProvider(), new MockApplicationNameProvider()));
         harness.Consumer(() => new SaveCommitConsumer<Item>(repo));
 
         await harness.Start();
@@ -105,7 +137,7 @@ public class SavePipelineTests
     {
         var repo = new InMemorySaveAuditRepository();
         var harness = new InMemoryTestHarness();
-        var validationConsumer = harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        var validationConsumer = harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator(), new MockEntityIdProvider(), new MockApplicationNameProvider()));
 
         await harness.Start();
         try

@@ -98,10 +98,13 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         // Create audit record for the delete operation
         var deleteAudit = new SaveAudit
         {
-            Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            Id = Guid.NewGuid().ToString(),
+            EntityId = context.Message.Id.ToString(),
+            EntityType = typeof(T).Name,
             IsValid = isValid,
             Metric = 0m, // Zero metric for delete operation
+            OperationType = "Delete",
+            TriggeredBy = "ReliableDeleteValidationConsumer",
             Timestamp = DateTime.UtcNow
         };
 
@@ -110,12 +113,12 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         // Publish validation result
         if (isValid)
         {
-            await context.Publish(new DeleteValidated(context.Message.Id, deleteAudit.Id, typeof(T).Name),
+            await context.Publish(new DeleteValidated(context.Message.Id, Guid.Parse(deleteAudit.Id), typeof(T).Name),
                 cancellationToken);
         }
         else
         {
-            await context.Publish(new DeleteRejected(context.Message.Id, deleteAudit.Id, "Validation failed", typeof(T).Name),
+            await context.Publish(new DeleteRejected(context.Message.Id, Guid.Parse(deleteAudit.Id), "Validation failed", typeof(T).Name),
                 cancellationToken);
         }
     }

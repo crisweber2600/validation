@@ -25,10 +25,13 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
         _previousMetric = metric;
         var audit = new SaveAudit
         {
-            Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            Id = Guid.NewGuid().ToString(),
+            EntityId = context.Message.Id.ToString(),
+            EntityType = "Unknown", // Could be improved with proper entity type detection
             IsValid = isValid,
-            Metric = metric
+            Metric = metric,
+            OperationType = "Save",
+            TriggeredBy = "SaveRequestedConsumer"
         };
         await _repository.AddAsync(audit, context.CancellationToken);
         await context.Publish(new SaveValidated(context.Message.Id, isValid, metric), context.CancellationToken);
