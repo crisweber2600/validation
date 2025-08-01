@@ -107,6 +107,42 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddSaveCommit<T>(this IServiceCollection services, string? endpointName = null)
+    {
+        services.AddScoped<SaveCommitConsumer<T>>();
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.ReceiveEndpoint(endpointName ?? $"save-{typeof(T).Name.ToLowerInvariant()}-commit", e =>
+                {
+                    e.ConfigureConsumer<SaveCommitConsumer<T>>(context);
+                });
+            });
+        });
+
+        return services;
+    }
+
+    public static IServiceCollection AddDeleteCommit<T>(this IServiceCollection services, string? endpointName = null)
+    {
+        services.AddScoped<DeleteCommitConsumer<T>>();
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<DeleteCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.ReceiveEndpoint(endpointName ?? $"delete-{typeof(T).Name.ToLowerInvariant()}-commit", e =>
+                {
+                    e.ConfigureConsumer<DeleteCommitConsumer<T>>(context);
+                });
+            });
+        });
+
+        return services;
+    }
+
     public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
     {
         // Set up validation plan provider with configurations

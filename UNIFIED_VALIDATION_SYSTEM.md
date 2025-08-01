@@ -200,6 +200,14 @@ services.AddSetupValidation()
     .Build();
 ```
 
+### Explicit Commit Registration
+
+```csharp
+// Manually register commit consumers
+services.AddSaveCommit<Item>();
+services.AddDeleteCommit<Item>();
+```
+
 ### Event Handling
 
 ```csharp
