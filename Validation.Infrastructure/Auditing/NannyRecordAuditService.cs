@@ -121,5 +121,6 @@ public class NannyRecordAuditOptions
 {
     public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromDays(2555); // ~7 years default
     public bool EnableAutomaticPurge { get; set; } = false;
+    public bool EnableDetailedAuditing { get; set; } = true;
     public List<string> SensitiveFields { get; set; } = new() { "ContactInfo", "Name" };
 }
