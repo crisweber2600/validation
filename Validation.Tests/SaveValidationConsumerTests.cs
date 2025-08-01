@@ -4,6 +4,7 @@ using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Domain.Entities;
+using Validation.Domain;
 
 namespace Validation.Tests;
 
@@ -16,11 +17,31 @@ public class SaveValidationConsumerTests
         public void AddPlan<T>(ValidationPlan plan) { }
     }
 
+    private class IdProvider : IEntityIdProvider
+    {
+        public Guid GetId<T>(T entity) => ((dynamic)entity).Id;
+    }
+
+    private class AppNameProvider : IApplicationNameProvider
+    {
+        public string ApplicationName => "TestApp";
+    }
+
+    private class ManualValidator : IManualValidatorService
+    {
+        public bool Validate(object instance) => true;
+    }
+
     [Fact]
     public async Task Publish_SaveValidated_after_processing()
     {
         var repository = new InMemorySaveAuditRepository();
-        var consumer = new SaveValidationConsumer<Item>(new TestPlanProvider(), repository, new SummarisationValidator());
+        var consumer = new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repository,
+            new ManualValidator(),
+            new IdProvider(),
+            new AppNameProvider());
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);
@@ -28,7 +49,7 @@ public class SaveValidationConsumerTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>(new Item(10m)));
 
             Assert.True(await harness.Published.Any<SaveValidated<Item>>());
         }
