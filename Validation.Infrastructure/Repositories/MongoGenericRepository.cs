@@ -1,4 +1,6 @@
 using MongoDB.Driver;
+using MassTransit;
+using Validation.Domain.Events;
 using Validation.Domain.Validation;
 
 namespace Validation.Infrastructure.Repositories;
@@ -8,22 +10,24 @@ public class MongoGenericRepository<T> : IGenericRepository<T>
     private readonly IMongoCollection<T> _collection;
     private readonly IValidationPlanProvider _planProvider;
     private readonly SummarisationValidator _validator;
+    private readonly IPublishEndpoint _bus;
 
-    public MongoGenericRepository(IMongoDatabase database, IValidationPlanProvider planProvider, SummarisationValidator validator)
+    public MongoGenericRepository(IMongoDatabase database, IValidationPlanProvider planProvider, SummarisationValidator validator, IPublishEndpoint bus)
     {
         _collection = database.GetCollection<T>(typeof(T).Name.ToLowerInvariant());
         _planProvider = planProvider;
         _validator = validator;
+        _bus = bus;
     }
 
     public async Task AddAsync(T entity, CancellationToken ct = default)
     {
-        await _collection.InsertOneAsync(entity, cancellationToken: ct);
+        await _bus.Publish(new SaveRequested<T>(Guid.NewGuid(), entity), ct);
     }
 
     public async Task AddManyAsync(IEnumerable<T> items, CancellationToken ct = default)
     {
-        await _collection.InsertManyAsync(items, cancellationToken: ct);
+        await _bus.Publish(new SaveBatchRequested<T>(Guid.NewGuid(), items), ct);
     }
 
     public async Task<T?> GetAsync(Guid id, CancellationToken ct = default)

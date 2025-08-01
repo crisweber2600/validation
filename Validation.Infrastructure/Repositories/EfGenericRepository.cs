@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
+using Validation.Domain.Events;
 using Validation.Domain.Validation;
 
 namespace Validation.Infrastructure.Repositories;
@@ -9,23 +11,25 @@ public class EfGenericRepository<T> : IGenericRepository<T> where T : class
     private readonly DbSet<T> _set;
     private readonly IValidationPlanProvider _planProvider;
     private readonly SummarisationValidator _validator;
+    private readonly IPublishEndpoint _bus;
 
-    public EfGenericRepository(DbContext context, IValidationPlanProvider planProvider, SummarisationValidator validator)
+    public EfGenericRepository(DbContext context, IValidationPlanProvider planProvider, SummarisationValidator validator, IPublishEndpoint bus)
     {
         _context = context;
         _set = context.Set<T>();
         _planProvider = planProvider;
         _validator = validator;
+        _bus = bus;
     }
 
     public async Task AddAsync(T entity, CancellationToken ct = default)
     {
-        await _set.AddAsync(entity, ct);
+        await _bus.Publish(new SaveRequested<T>(Guid.NewGuid(), entity), ct);
     }
 
     public Task AddManyAsync(IEnumerable<T> items, CancellationToken ct = default)
     {
-        _set.AddRange(items);
+        _bus.Publish(new SaveBatchRequested<T>(Guid.NewGuid(), items), ct);
         return Task.CompletedTask;
     }
 
