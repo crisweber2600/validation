@@ -78,7 +78,7 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
     private async Task ValidateDeleteAsync(ConsumeContext<DeleteRequested> context, CancellationToken cancellationToken)
     {
         // Get the last audit record to understand the current state
-        var lastAudit = await _auditRepository.GetLastAsync(context.Message.Id, cancellationToken);
+        var lastAudit = await _auditRepository.GetLastAsync(context.Message.Id.ToString(), cancellationToken);
         
         if (lastAudit == null)
         {
@@ -99,9 +99,11 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         var deleteAudit = new SaveAudit
         {
             Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            EntityId = context.Message.Id.ToString(),
+            ApplicationName = string.Empty,
             IsValid = isValid,
             Metric = 0m, // Zero metric for delete operation
+            BatchSize = 1,
             Timestamp = DateTime.UtcNow
         };
 
