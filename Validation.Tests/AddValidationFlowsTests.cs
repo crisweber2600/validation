@@ -30,18 +30,18 @@ public class AddValidationFlowsTests
         {
             element.TryGetProperty("ThresholdType", out var thresholdTypeElement);
             element.TryGetProperty("ThresholdValue", out var thresholdValueElement);
-            
+
             configs.Add(new ValidationFlowConfig
             {
                 Type = element.GetProperty("Type").GetString()!,
                 SaveValidation = element.GetProperty("SaveValidation").GetBoolean(),
                 SaveCommit = element.GetProperty("SaveCommit").GetBoolean(),
                 MetricProperty = element.GetProperty("MetricProperty").GetString(),
-                ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number 
-                    ? (ThresholdType?)thresholdTypeElement.GetInt32() 
+                ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number
+                    ? (ThresholdType?)thresholdTypeElement.GetInt32()
                     : null,
-                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number 
-                    ? thresholdValueElement.GetDecimal() 
+                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number
+                    ? thresholdValueElement.GetDecimal()
                     : null
             });
         }
@@ -53,11 +53,11 @@ public class AddValidationFlowsTests
 
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
-        
+
         // Verify that the consumers were registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.NotNull(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
-        
+
         // Verify that validation plan provider was configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         Assert.NotNull(planProvider);
@@ -84,13 +84,48 @@ public class AddValidationFlowsTests
 
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
-        
+
         // Verify that only SaveValidationConsumer was registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.Null(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
-        
+
         // Verify that validation plan provider was still configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         Assert.NotNull(planProvider);
+    }
+
+    [Fact]
+    public void AddValidationFlows_registers_delete_consumers_and_manual_rules()
+    {
+        var configs = new List<ValidationFlowConfig>
+        {
+            new ValidationFlowConfig
+            {
+                Type = "Validation.Domain.Entities.Item, Validation.Domain",
+                SaveValidation = false,
+                SaveCommit = false,
+                DeleteValidation = true,
+                DeleteCommit = true,
+                ManualRules = new List<ManualRuleConfig>
+                {
+                    new ManualRuleConfig { Property = "Metric", GreaterThan = 0 }
+                }
+            }
+        };
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("delete-flow-test"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
+
+        var validator = scope.ServiceProvider.GetRequiredService<IManualValidatorService>();
+        var item = new Item(-1m);
+        Assert.False(validator.Validate(item));
     }
 }

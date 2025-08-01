@@ -48,13 +48,13 @@ public static class ServiceCollectionExtensions
             // Register the enhanced consumers
             x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
             x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
+
             configureBus?.Invoke(x);
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => 
+        services.AddOpenTelemetry().WithTracing(builder =>
         {
             builder.AddAspNetCoreInstrumentation();
             builder.AddSource(ValidationObservability.ActivitySource.Name);
@@ -124,7 +124,7 @@ public static class ServiceCollectionExtensions
                     var conv = Expression.Convert(prop, typeof(decimal));
                     var lambda = Expression.Lambda<Func<object, decimal>>(conv, param).Compile();
                     var plan = new ValidationPlan(lambda, config.ThresholdType.Value, config.ThresholdValue.Value);
-                    
+
                     typeof(InMemoryValidationPlanProvider).GetMethod("AddPlan")!
                         .MakeGenericMethod(type)
                         .Invoke(provider, new object[] { plan });
@@ -137,6 +137,25 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+
+        foreach (var config in configs)
+        {
+            var type = Type.GetType(config.Type, true)!;
+            foreach (var rule in config.ManualRules)
+            {
+                var param = Expression.Parameter(type, "e");
+                var prop = Expression.Property(param, rule.Property);
+                var conv = Expression.Convert(prop, typeof(decimal));
+                var constant = Expression.Constant(rule.GreaterThan, typeof(decimal));
+                var body = Expression.GreaterThan(conv, constant);
+                var lambda = Expression.Lambda(body, param);
+                var func = lambda.Compile();
+                typeof(ServiceCollectionExtensions)
+                    .GetMethod(nameof(AddValidatorRule))!
+                    .MakeGenericMethod(type)
+                    .Invoke(null, new object?[] { services, func });
+            }
+        }
 
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
@@ -153,6 +172,16 @@ public static class ServiceCollectionExtensions
                 {
                     x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteValidation)
+                {
+                    x.AddConsumer(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
                 }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
