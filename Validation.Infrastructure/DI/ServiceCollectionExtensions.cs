@@ -8,6 +8,7 @@ using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
 using Validation.Domain.Validation;
+using Validation.Domain.Repositories;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
@@ -25,6 +26,7 @@ public static class ServiceCollectionExtensions
         Action<IBusRegistrationConfigurator>? configureBus = null)
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.AddScoped<ISummaryRecordRepository, EfCoreSummaryRecordRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
@@ -46,8 +48,10 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>,
+                ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>,
+                ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>>();
             
             configureBus?.Invoke(x);
         });
@@ -69,6 +73,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        services.AddScoped<ISummaryRecordRepository, MongoSummaryRecordRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
@@ -196,6 +201,7 @@ public static class ValidationFlowServiceCollectionExtensions
         options.Services.AddDbContext<TContext>(o => o.UseInMemoryDatabase(connectionString));
         options.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<TContext>());
         options.Services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        options.Services.AddScoped<ISummaryRecordRepository, EfCoreSummaryRecordRepository>();
         return options.Services;
     }
 
@@ -205,6 +211,7 @@ public static class ValidationFlowServiceCollectionExtensions
         var database = client.GetDatabase(dbName);
         options.Services.AddSingleton(database);
         options.Services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        options.Services.AddScoped<ISummaryRecordRepository, MongoSummaryRecordRepository>();
         return options.Services;
     }
 
