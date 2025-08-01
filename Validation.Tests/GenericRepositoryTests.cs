@@ -26,6 +26,7 @@ public class GenericRepositoryTests
         }
         public IEnumerable<IValidationRule> GetRules<T>() => new[] { _rule };
         public ValidationPlan GetPlan(Type t) => new ValidationPlan(new[] { _rule });
+        public ValidationPlan GetPlanFor<T>() => GetPlan(typeof(T));
         public void AddPlan<T>(ValidationPlan plan) { }
     }
 
