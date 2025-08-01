@@ -35,6 +35,47 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddSaveValidation<T>(this IServiceCollection services, Func<T, decimal>? metricSelector = null, ThresholdType thresholdType = ThresholdType.PercentChange, decimal thresholdValue = 0.1m) where T : class
+    {
+        var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IValidationPlanProvider));
+        InMemoryValidationPlanProvider provider;
+        if (descriptor?.ImplementationInstance is InMemoryValidationPlanProvider existing)
+        {
+            provider = existing;
+        }
+        else
+        {
+            provider = new InMemoryValidationPlanProvider();
+            services.AddSingleton<IValidationPlanProvider>(provider);
+        }
+        Func<object, decimal> selector = metricSelector != null ? o => metricSelector((T)o) : _ => 0m;
+        provider.AddPlan<T>(new ValidationPlan(selector, thresholdType, thresholdValue));
+        services.AddScoped<SummarisationValidator>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    public static IServiceCollection SetupValidation(this IServiceCollection services, Action<SetupValidationBuilder> configure)
+    {
+        var builder = new SetupValidationBuilder();
+        configure(builder);
+        builder.Apply(services);
+        return services;
+    }
+
+    public static IServiceCollection AddSetupValidation<T>(this IServiceCollection services, Action<SetupValidationBuilder> configure, Func<T, decimal>? metricSelector = null, ThresholdType thresholdType = ThresholdType.PercentChange, decimal thresholdValue = 0.1m) where T : class
+    {
+        var builder = new SetupValidationBuilder();
+        configure(builder);
+        builder.Apply(services);
+        services.AddSaveValidation(metricSelector, thresholdType, thresholdValue);
+        if (builder.RepositoryType == AuditRepositoryType.Mongo)
+            services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        else
+            services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        return services;
+    }
+
     public static IServiceCollection AddMongoValidationInfrastructure(
         this IServiceCollection services, IMongoDatabase database,
         Action<IBusRegistrationConfigurator>? configureBus = null)
