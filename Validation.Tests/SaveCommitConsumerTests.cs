@@ -14,9 +14,14 @@ public class SaveCommitConsumerTests
     {
         public Task AddAsync(SaveAudit entity, CancellationToken ct = default) => Task.CompletedTask;
         public Task DeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(new SaveAudit { Id = id, EntityId = id });
+        public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(new SaveAudit { Id = id.ToString(), EntityId = id.ToString() });
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default) => throw new Exception("fail");
-        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);
+        public Task<SaveAudit?> GetLastAsync(string entityId, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);
+        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default) => GetLastAsync(entityId.ToString(), ct);
+        public Task<IEnumerable<SaveAudit>> GetByEntityTypeAsync(string entityType, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        public Task<IEnumerable<SaveAudit>> GetByApplicationAsync(string applicationName, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        public Task<IEnumerable<SaveAudit>> GetByTimeRangeAsync(DateTime from, DateTime to, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        public Task<IEnumerable<SaveAudit>> GetByCorrelationIdAsync(string correlationId, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
     }
 
     [Fact]
