@@ -52,7 +52,7 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
+                if (ShouldRetry(ex))
                 {
                     Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
@@ -106,11 +106,8 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;
