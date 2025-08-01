@@ -32,6 +32,7 @@ public class DeletePipelineReliabilityPolicy
 
         var attempts = 0;
         Exception? lastException = null;
+        var operationFailed = false;
 
         while (attempts < _options.MaxRetryAttempts)
         {
@@ -54,7 +55,6 @@ public class DeletePipelineReliabilityPolicy
                 
                 if (ShouldRetry(ex, attempts - 1))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
 
                     _logger.LogWarning(ex, 
@@ -69,6 +69,7 @@ public class DeletePipelineReliabilityPolicy
                     else
                     {
                         // Retryable exception but retries exhausted - this will be wrapped below
+                        operationFailed = true;
                         break;
                     }
                 }
@@ -76,13 +77,17 @@ public class DeletePipelineReliabilityPolicy
                 {
                     // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
+                    operationFailed = true;
                     throw;
                 }
             }
         }
 
+        if (operationFailed)
+            Interlocked.Increment(ref _consecutiveFailures);
+
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);
-        
+
         // Always wrap retryable exceptions that exhausted retries in DeletePipelineReliabilityException
         throw new DeletePipelineReliabilityException(
             $"Delete pipeline operation failed after {attempts} attempts", lastException);
@@ -108,7 +113,7 @@ public class DeletePipelineReliabilityPolicy
 
     private bool ShouldRetry(Exception exception, int attempt)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
+        if (attempt >= _options.MaxRetryAttempts)
             return false;
 
         // Don't retry on certain exception types
