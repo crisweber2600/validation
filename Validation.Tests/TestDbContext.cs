@@ -11,4 +11,5 @@ public class TestDbContext : DbContext
 
     public DbSet<SaveAudit> SaveAudits => Set<SaveAudit>();
     public DbSet<Validation.Domain.Entities.Item> Items => Set<Validation.Domain.Entities.Item>();
+    public DbSet<Validation.Domain.Entities.Measurement> Measurements => Set<Validation.Domain.Entities.Measurement>();
 }
