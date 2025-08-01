@@ -5,6 +5,9 @@ using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
 using Validation.Domain.Entities;
+using Serilog;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 
@@ -23,7 +26,21 @@ public class SaveCommitConsumerTests
     public async Task Publish_SaveCommitFault_on_error()
     {
         var repo = new FailingRepository();
-        var consumer = new SaveCommitConsumer<Item>(repo);
+        var sink = new TestSink();
+        var serilogger = new LoggerConfiguration().WriteTo.Sink(sink).CreateLogger();
+        using var factory = LoggerFactory.Create(b => b.AddSerilog(serilogger));
+        var logger = factory.CreateLogger<SaveCommitConsumer<Item>>();
+        using var source = new ActivitySource("test-commit");
+        var activities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => s.Name == "test-commit",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStarted = a => activities.Add(a),
+            ActivityStopped = _ => { }
+        };
+        ActivitySource.AddActivityListener(listener);
+        var consumer = new SaveCommitConsumer<Item>(repo, logger, source);
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);
@@ -34,6 +51,8 @@ public class SaveCommitConsumerTests
             await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>(Guid.NewGuid(), Guid.NewGuid()));
 
             Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
+            Assert.NotEmpty(sink.Events);
+            Assert.NotEmpty(activities);
         }
         finally
         {
