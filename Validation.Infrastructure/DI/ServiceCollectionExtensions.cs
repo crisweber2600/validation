@@ -9,6 +9,7 @@ using Serilog;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure.Pipeline;
 using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.DI;
@@ -135,7 +136,21 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+    public static IServiceCollection AddMetricsPipeline<T>(this IServiceCollection services, ValidationStrategy strategy = ValidationStrategy.Average, Func<IServiceProvider, IGatherService>? gatherFactory = null)
+    {
+        if (gatherFactory != null)
+            services.AddSingleton(gatherFactory);
+        else
+            services.AddSingleton<IGatherService, RandomGatherService>();
+        services.AddSingleton(new SummarizationService(strategy));
+        services.AddScoped<IValidationService, ValidationService>();
+        services.AddScoped<CommitService>();
+        services.AddSingleton<DiscardHandler>();
+        services.AddHostedService<PipelineOrchestrator<T>>();
+        return services;
 }
+    }
+
 
 public static class ValidationFlowServiceCollectionExtensions
 {
