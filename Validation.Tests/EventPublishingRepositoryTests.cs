@@ -1,6 +1,6 @@
 using MassTransit.Testing;
 using Validation.Domain.Entities;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Repositories;
 
 namespace Validation.Tests;
@@ -8,17 +8,19 @@ namespace Validation.Tests;
 public class EventPublishingRepositoryTests
 {
     [Fact]
-    public async Task SaveAsync_publishes_event()
+    public async Task SaveAsync_publishes_event_with_app_name()
     {
         var harness = new InMemoryTestHarness();
 
         await harness.Start();
         try
         {
-            var repository = new EventPublishingRepository<Item>(harness.Bus);
+            var repository = new EventPublishingRepository<Item>(harness.Bus, "TestApp");
             var item = new Item(5);
             await repository.SaveAsync(item);
             Assert.True(await harness.Published.Any<SaveRequested<Item>>());
+            var sent = (await harness.Published.SelectAsync<SaveRequested<Item>>()).First().Context.Message;
+            Assert.Equal("TestApp", sent.AppName);
         }
         finally
         {
@@ -27,17 +29,19 @@ public class EventPublishingRepositoryTests
     }
 
     [Fact]
-    public async Task DeleteAsync_publishes_event()
+    public async Task DeleteAsync_publishes_event_with_app_name()
     {
         var harness = new InMemoryTestHarness();
 
         await harness.Start();
         try
         {
-            var repository = new EventPublishingRepository<Item>(harness.Bus);
+            var repository = new EventPublishingRepository<Item>(harness.Bus, "TestApp");
             var id = Guid.NewGuid();
             await repository.DeleteAsync(id);
-            Assert.True(await harness.Published.Any<DeleteRequested>());
+            Assert.True(await harness.Published.Any<DeleteRequested<Item>>());
+            var sent = (await harness.Published.SelectAsync<DeleteRequested<Item>>()).First().Context.Message;
+            Assert.Equal("TestApp", sent.AppName);
         }
         finally
         {
