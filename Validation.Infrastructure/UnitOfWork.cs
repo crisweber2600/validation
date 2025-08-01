@@ -18,7 +18,7 @@ public class UnitOfWork
         _validator = validator;
     }
 
-    public IGenericRepository<T> Repository<T>() where T : class
+    public IGenericRepository<T> Repository<T>() where T : Validation.Domain.Entities.BaseEntity
     {
         if (!_repos.TryGetValue(typeof(T), out var repo))
         {
@@ -28,7 +28,7 @@ public class UnitOfWork
         return (IGenericRepository<T>)repo;
     }
 
-    public async Task<int> SaveChangesWithPlanAsync<T>(CancellationToken ct = default) where T : class
+    public async Task<int> SaveChangesWithPlanAsync<T>(CancellationToken ct = default) where T : Validation.Domain.Entities.BaseEntity
     {
         await Repository<T>().SaveChangesWithPlanAsync(ct);
         return await _context.Set<T>().CountAsync(ct);

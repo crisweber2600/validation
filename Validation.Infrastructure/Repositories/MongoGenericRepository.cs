@@ -3,7 +3,7 @@ using Validation.Domain.Validation;
 
 namespace Validation.Infrastructure.Repositories;
 
-public class MongoGenericRepository<T> : IGenericRepository<T>
+public class MongoGenericRepository<T> : IGenericRepository<T> where T : Validation.Domain.Entities.BaseEntity
 {
     private readonly IMongoCollection<T> _collection;
     private readonly IValidationPlanProvider _planProvider;
@@ -28,7 +28,7 @@ public class MongoGenericRepository<T> : IGenericRepository<T>
 
     public async Task<T?> GetAsync(Guid id, CancellationToken ct = default)
     {
-        var filter = Builders<T>.Filter.Eq("Id", id);
+        var filter = Builders<T>.Filter.Eq(e => e.Id, id) & Builders<T>.Filter.Eq(e => e.Validated, true);
         return await _collection.Find(filter).FirstOrDefaultAsync(ct);
     }
 
@@ -41,9 +41,18 @@ public class MongoGenericRepository<T> : IGenericRepository<T>
         await _collection.ReplaceOneAsync(filter, entity, cancellationToken: ct);
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+        => HardDeleteAsync(id, ct);
+
+    public async Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var filter = Builders<T>.Filter.Eq("Id", id);
+        var update = Builders<T>.Update.Set(e => e.Validated, false);
+        await _collection.UpdateOneAsync(e => e.Id == id, update, cancellationToken: ct);
+    }
+
+    public async Task HardDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var filter = Builders<T>.Filter.Eq(e => e.Id, id);
         await _collection.DeleteOneAsync(filter, ct);
     }
 

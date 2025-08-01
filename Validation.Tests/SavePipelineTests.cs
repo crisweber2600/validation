@@ -39,6 +39,9 @@ public class SavePipelineTests
             Audits.RemoveAll(a => a.Id == id);
             return Task.CompletedTask;
         }
+
+        public Task SoftDeleteAsync(Guid id, CancellationToken ct = default) => DeleteAsync(id, ct);
+        public Task HardDeleteAsync(Guid id, CancellationToken ct = default) => DeleteAsync(id, ct);
         
         public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
         {

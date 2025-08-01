@@ -6,4 +6,6 @@ public interface IRepository<T>
     Task AddAsync(T entity, CancellationToken ct = default);
     Task UpdateAsync(T entity, CancellationToken ct = default);
     Task DeleteAsync(Guid id, CancellationToken ct = default);
+    Task SoftDeleteAsync(Guid id, CancellationToken ct = default);
+    Task HardDeleteAsync(Guid id, CancellationToken ct = default);
 }

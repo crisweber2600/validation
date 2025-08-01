@@ -30,6 +30,12 @@ public class EfCoreSaveAuditRepository : ISaveAuditRepository
         }
     }
 
+    public Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+        => DeleteAsync(id, ct);
+
+    public Task HardDeleteAsync(Guid id, CancellationToken ct = default)
+        => DeleteAsync(id, ct);
+
     public async Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
     {
         return await _set.FindAsync(new object?[] { id }, ct);

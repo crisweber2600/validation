@@ -7,9 +7,8 @@ namespace Validation.Tests;
 
 public class UnitOfWorkExampleTests
 {
-    private class YourEntity
+    private class YourEntity : Validation.Domain.Entities.BaseEntity
     {
-        public int Id { get; set; }
     }
 
     private class ExampleDbContext : DbContext
@@ -32,10 +31,10 @@ public class UnitOfWorkExampleTests
         var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
-        planProvider.AddPlan<YourEntity>(new ValidationPlan(e => ((YourEntity)e).Id, ThresholdType.RawDifference, 5));
+        planProvider.AddPlan<YourEntity>(new ValidationPlan(_ => 0m, ThresholdType.RawDifference, 5));
 
         var uow = scope.ServiceProvider.GetRequiredService<UnitOfWork>();
-        await uow.Repository<YourEntity>().AddAsync(new YourEntity { Id = 50 });
+        await uow.Repository<YourEntity>().AddAsync(new YourEntity());
         var count = await uow.SaveChangesWithPlanAsync<YourEntity>();
 
         var ctx = scope.ServiceProvider.GetRequiredService<ExampleDbContext>();

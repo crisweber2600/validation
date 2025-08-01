@@ -21,6 +21,12 @@ public class MongoSaveAuditRepository : ISaveAuditRepository
         await _collection.DeleteOneAsync(x => x.Id == id, ct);
     }
 
+    public Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+        => DeleteAsync(id, ct);
+
+    public Task HardDeleteAsync(Guid id, CancellationToken ct = default)
+        => DeleteAsync(id, ct);
+
     public async Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
     {
         var result = await _collection.Find(x => x.Id == id).FirstOrDefaultAsync(ct);

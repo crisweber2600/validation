@@ -22,4 +22,14 @@ public class EventPublishingRepository<T> : IEntityRepository<T>
     {
         return _bus.Publish(new DeleteRequested(id), ct);
     }
+
+    public Task SoftDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        return _bus.Publish(new DeleteRequested(id), ct);
+    }
+
+    public Task HardDeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        return _bus.Publish(new DeleteRequested(id), ct);
+    }
 }

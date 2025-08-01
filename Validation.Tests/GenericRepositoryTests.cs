@@ -48,4 +48,45 @@ public class GenericRepositoryTests
         Assert.Equal(1, rule.Calls);
         Assert.Equal(100, context.Items.Count());
     }
+
+    [Fact]
+    public async Task SoftDelete_marks_entity_invalid_and_excludes_from_get()
+    {
+        var options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseInMemoryDatabase("softdelete")
+            .Options;
+        using var context = new TestDbContext(options);
+        var repo = new EfGenericRepository<Item>(context, new TestPlanProvider(new CountingRule()), new SummarisationValidator());
+
+        var item = new Item(5);
+        await repo.AddAsync(item);
+        await repo.SaveChangesWithPlanAsync();
+
+        await repo.SoftDeleteAsync(item.Id);
+        await repo.SaveChangesWithPlanAsync();
+
+        Assert.False(item.Validated);
+        Assert.NotNull(await context.Items.FindAsync(item.Id));
+        Assert.Null(await repo.GetAsync(item.Id));
+    }
+
+    [Fact]
+    public async Task HardDelete_removes_entity()
+    {
+        var options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseInMemoryDatabase("harddelete")
+            .Options;
+        using var context = new TestDbContext(options);
+        var repo = new EfGenericRepository<Item>(context, new TestPlanProvider(new CountingRule()), new SummarisationValidator());
+
+        var item = new Item(5);
+        await repo.AddAsync(item);
+        await repo.SaveChangesWithPlanAsync();
+
+        await repo.HardDeleteAsync(item.Id);
+        await repo.SaveChangesWithPlanAsync();
+
+        var entity = await context.Items.FindAsync(item.Id);
+        Assert.Null(entity);
+    }
 }
