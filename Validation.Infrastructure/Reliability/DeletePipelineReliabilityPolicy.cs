@@ -38,45 +38,42 @@ public class DeletePipelineReliabilityPolicy
             try
             {
                 _logger.LogDebug("Executing delete pipeline operation. Attempt {Attempt}", attempts + 1);
-                
+
                 var result = await operation(cancellationToken);
-                
+
                 // Reset failure count on success
                 Interlocked.Exchange(ref _consecutiveFailures, 0);
                 _logger.LogDebug("Delete pipeline operation completed successfully");
-                
+
                 return result;
             }
             catch (Exception ex)
             {
                 lastException = ex;
                 attempts++;
-                
-                if (ShouldRetry(ex, attempts - 1))
-                {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
 
-                    _logger.LogWarning(ex, 
-                        "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
-                        attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
-
-                    if (attempts < _options.MaxRetryAttempts)
-                    {
-                        await Task.Delay(_options.RetryDelayMs, cancellationToken);
-                        continue;
-                    }
-                    else
-                    {
-                        // Retryable exception but retries exhausted - this will be wrapped below
-                        break;
-                    }
-                }
-                else
+                if (!ShouldRetry(ex))
                 {
                     // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
                     throw;
+                }
+
+                if (attempts < _options.MaxRetryAttempts)
+                {
+                    _logger.LogWarning(ex,
+                        "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
+                        attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
+
+                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
+                    continue;
+                }
+                else
+                {
+                    // Retries exhausted - record failure and break to throw wrapped exception
+                    Interlocked.Increment(ref _consecutiveFailures);
+                    _lastFailureTime = DateTime.UtcNow;
+                    break;
                 }
             }
         }
@@ -99,16 +96,10 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private static bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
-        if (exception is ArgumentException or ArgumentNullException)
-            return false;
-
-        return true;
+        return exception is not ArgumentException and not ArgumentNullException;
     }
 
     private bool IsCircuitOpen()

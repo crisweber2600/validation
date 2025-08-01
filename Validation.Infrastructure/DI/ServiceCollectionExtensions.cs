@@ -15,6 +15,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Setup;
 
 namespace Validation.Infrastructure.DI;
 
@@ -211,5 +212,12 @@ public static class ValidationFlowServiceCollectionExtensions
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
         return services;
+    }
+
+    public static IServiceCollection SetupValidation(this IServiceCollection services, Action<SetupValidationBuilder> configure)
+    {
+        var builder = new SetupValidationBuilder(services);
+        configure(builder);
+        return builder.Apply();
     }
 }
