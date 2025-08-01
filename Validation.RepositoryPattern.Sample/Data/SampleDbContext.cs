@@ -15,6 +15,7 @@ public class SampleDbContext : DbContext
     
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Server> Servers => Set<Server>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +42,15 @@ public class SampleDbContext : DbContext
             entity.Property(e => e.CreditLimit).HasPrecision(18, 2);
             entity.Property(e => e.CurrentBalance).HasPrecision(18, 2);
             entity.HasIndex(e => e.Email).IsUnique();
+        });
+        
+        // Server configuration
+        modelBuilder.Entity<Server>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Memory).HasPrecision(18, 2);
+            entity.HasIndex(e => e.Name).IsUnique();
         });
     }
 }

@@ -50,6 +50,14 @@ class Program
                         .WithValidationTimeout(TimeSpan.FromMinutes(1))
                         .EnableAuditing())
                     
+                    // Configure validation flows for Server
+                    .AddValidationFlow<Server>(flow => flow
+                        .EnableSaveValidation()
+                        .EnableDeleteValidation()
+                        .WithThreshold(x => x.Memory, ThresholdType.GreaterThan, 0)
+                        .WithValidationTimeout(TimeSpan.FromMinutes(1))
+                        .EnableAuditing())
+                    
                     // Product validation rules
                     .AddRule<Product>("PositivePrice", product => product.Price > 0)
                     .AddRule<Product>("NonNegativeQuantity", product => product.Quantity >= 0)
@@ -66,6 +74,11 @@ class Program
                     .AddRule<Customer>("NonNegativeBalance", customer => customer.CurrentBalance >= 0)
                     .AddRule<Customer>("BalanceWithinCreditLimit", customer => customer.CurrentBalance <= customer.CreditLimit)
                     .AddRule<Customer>("ReasonableAge", customer => customer.Age >= 18 && customer.Age <= 120)
+                    
+                    // Server validation rules
+                    .AddRule<Server>("RequiredName", server => !string.IsNullOrWhiteSpace(server.Name))
+                    .AddRule<Server>("PositiveMemory", server => server.Memory > 0)
+                    .AddRule<Server>("ReasonableMemory", server => server.Memory <= 1024) // Max 1TB
                     
                     .ConfigureMetrics(metrics => metrics
                         .WithProcessingInterval(TimeSpan.FromSeconds(30))
@@ -102,6 +115,7 @@ class Program
         await DemonstrateValidatedRepositoryPattern(host.Services, logger);
         await DemonstrateBusinessServices(host.Services, logger);
         await DemonstrateValidationFailures(host.Services, logger);
+        await DemonstrateServerValidationScenario(host.Services, logger);
 
         Console.WriteLine("\nPress any key to exit...");
         Console.ReadKey();
@@ -112,22 +126,28 @@ class Program
         // Register basic repositories (without validation)
         services.AddScoped<Repository<Product>>();
         services.AddScoped<Repository<Customer>>();
+        services.AddScoped<Repository<Server>>();
         services.AddScoped<ProductRepository>();
         services.AddScoped<CustomerRepository>();
+        services.AddScoped<ServerRepository>();
 
         // Register validated repositories (with validation integration)
         services.AddScoped<ValidatedRepository<Product>>();
         services.AddScoped<ValidatedRepository<Customer>>();
+        services.AddScoped<ValidatedRepository<Server>>();
         services.AddScoped<ValidatedProductRepository>();
         services.AddScoped<ValidatedCustomerRepository>();
+        services.AddScoped<ValidatedServerRepository>();
 
         // Register repositories using interfaces - choose validated versions for demonstration
         services.AddScoped<IProductRepository, ValidatedProductRepository>();
         services.AddScoped<ICustomerRepository, ValidatedCustomerRepository>();
+        services.AddScoped<IServerRepository, ValidatedServerRepository>();
 
         // Register business services
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IServerService, ServerService>();
     }
 
     private static async Task DemonstrateBasicRepositoryPattern(IServiceProvider services, ILogger logger)
@@ -369,5 +389,25 @@ class Program
         }
 
         logger.LogInformation("Validation failure demonstration completed");
+    }
+
+    private static async Task DemonstrateServerValidationScenario(IServiceProvider services, ILogger logger)
+    {
+        Console.WriteLine("\n5. Server Memory Validation Scenario");
+        Console.WriteLine("------------------------------------");
+
+        using var scope = services.CreateScope();
+        var serverService = scope.ServiceProvider.GetRequiredService<IServerService>();
+
+        logger.LogInformation("Testing server memory validation scenario as described in requirements...");
+
+        try
+        {
+            await serverService.DemonstrateValidationScenarioAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "✗ Server validation scenario failed");
+        }
     }
 }
