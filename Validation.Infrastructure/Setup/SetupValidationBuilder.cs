@@ -47,7 +47,10 @@ public class SetupValidationBuilder
             {
                 services.AddDbContext<TContext>(options => options.UseInMemoryDatabase("ValidationDb"));
             }
+
             services.AddScoped<DbContext, TContext>();
+            services.AddScoped(typeof(IGenericRepository<>), typeof(EfGenericRepository<>));
+            services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         });
         return this;
     }
@@ -62,6 +65,8 @@ public class SetupValidationBuilder
             var client = new MongoClient(connectionString);
             var database = client.GetDatabase(databaseName);
             services.AddSingleton(database);
+            services.AddScoped(typeof(IGenericRepository<>), typeof(MongoGenericRepository<>));
+            services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         });
         return this;
     }

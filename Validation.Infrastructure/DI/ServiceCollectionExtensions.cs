@@ -226,4 +226,39 @@ public static class ValidationFlowServiceCollectionExtensions
         configure?.Invoke(options);
         return services;
     }
+
+    public static IServiceCollection AddSetupValidation<T>(
+        this IServiceCollection services,
+        Action<SetupValidationBuilder> configureDatabase,
+        Func<T, decimal> metricSelector,
+        ThresholdType thresholdType,
+        decimal thresholdValue)
+    {
+        var builder = services.AddSetupValidation();
+        configureDatabase(builder);
+        builder.Build();
+
+        services.AddSingleton<IValidationPlanProvider>(_ =>
+        {
+            var provider = new InMemoryValidationPlanProvider();
+            Func<object, decimal> selector = o => metricSelector((T)o);
+            provider.AddPlan<T>(new ValidationPlan(selector, thresholdType, thresholdValue));
+            return provider;
+        });
+
+        services.AddScoped<SummarisationValidator>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveValidationConsumer<T>>();
+            services.AddScoped<SaveValidationConsumer<T>>();
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            services.AddScoped<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+
+        return services;
+    }
 }
