@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.DI;
+using Validation.Infrastructure;
 
 namespace Validation.Tests;
 
@@ -72,5 +73,21 @@ public class AddValidatorServiceTests
         // Test entity that passes both rules
         var validEntity = new TestEntity { Id = 1, Name = "Hello" };
         Assert.True(validatorService.Validate(validEntity));
+
+        var svcImpl = Assert.IsType<ManualValidatorService>(validatorService);
+        Assert.Equal(2, svcImpl.GetRules(typeof(TestEntity)).Count());
+    }
+
+    [Fact]
+    public void AddValidatorRule_throws_when_rule_is_duplicate()
+    {
+        var services = new ServiceCollection();
+        Func<TestEntity, bool> rule = e => e.Id > 0;
+
+        services.AddValidatorRule(rule);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddValidatorRule(rule));
+
+        Assert.Contains("same signature", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }
