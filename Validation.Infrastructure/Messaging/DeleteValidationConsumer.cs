@@ -1,11 +1,10 @@
 using MassTransit;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Domain.Validation;
-using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Messaging;
 
-public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
+public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested<T>>
 {
     private readonly IValidationPlanProvider _planProvider;
     private readonly SummarisationValidator _validator;
@@ -16,7 +15,7 @@ public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         _validator = validator;
     }
 
-    public Task Consume(ConsumeContext<DeleteRequested> context)
+    public Task Consume(ConsumeContext<DeleteRequested<T>> context)
     {
         var rules = _planProvider.GetRules<T>();
         // execute manual rules with zero metrics since delete; actual logic omitted

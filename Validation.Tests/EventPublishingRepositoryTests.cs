@@ -1,7 +1,9 @@
 using MassTransit.Testing;
+using MassTransit;
 using Validation.Domain.Entities;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Repositories;
+using System.Linq;
 
 namespace Validation.Tests;
 
@@ -17,8 +19,12 @@ public class EventPublishingRepositoryTests
         {
             var repository = new EventPublishingRepository<Item>(harness.Bus);
             var item = new Item(5);
-            await repository.SaveAsync(item);
+            await repository.SaveAsync(item, "TestApp");
             Assert.True(await harness.Published.Any<SaveRequested<Item>>());
+            var message = (await harness.Published
+                .SelectAsync<SaveRequested<Item>>().First()).Context.Message;
+            Assert.Equal("TestApp", message.AppName);
+            Assert.Equal("Item", message.EntityType);
         }
         finally
         {
@@ -36,8 +42,13 @@ public class EventPublishingRepositoryTests
         {
             var repository = new EventPublishingRepository<Item>(harness.Bus);
             var id = Guid.NewGuid();
-            await repository.DeleteAsync(id);
-            Assert.True(await harness.Published.Any<DeleteRequested>());
+            await repository.DeleteAsync(id, "TestApp");
+            Assert.True(await harness.Published.Any<DeleteRequested<Item>>());
+            var message = (await harness.Published
+                .SelectAsync<DeleteRequested<Item>>().First()).Context.Message;
+            Assert.Equal(id, message.EntityId);
+            Assert.Equal("TestApp", message.AppName);
+            Assert.Equal("Item", message.EntityType);
         }
         finally
         {

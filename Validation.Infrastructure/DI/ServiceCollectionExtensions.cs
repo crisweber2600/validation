@@ -217,7 +217,7 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddScoped<SummarisationValidator>();
         services.AddMassTransitTestHarness(x =>
         {
-            x.AddConsumer<SaveRequestedConsumer>();
+            x.AddConsumer<SaveRequestedConsumer<Validation.Domain.Entities.Item>>();
             x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
         });
         services.AddLogging(b => b.AddSerilog());

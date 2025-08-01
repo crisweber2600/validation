@@ -1,6 +1,6 @@
 using MassTransit;
 using MassTransit.Testing;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
@@ -16,7 +16,8 @@ public class SaveCommitConsumerTests
         public Task DeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
         public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(new SaveAudit { Id = id, EntityId = id });
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default) => throw new Exception("fail");
-        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);
+        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default) =>
+            Task.FromResult<SaveAudit?>(new SaveAudit { Id = entityId, EntityId = entityId });
     }
 
     [Fact]
@@ -31,7 +32,8 @@ public class SaveCommitConsumerTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>(Guid.NewGuid(), Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(
+                new SaveValidated<Item>("TestApp", "Item", Guid.NewGuid(), new Item(0), true));
 
             Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
         }
