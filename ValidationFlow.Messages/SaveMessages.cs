@@ -30,3 +30,9 @@ public sealed record DeleteRequested<T>(string AppName, string EntityType, Guid 
 /// </summary>
 [Serializable]
 public sealed record DeleteValidated<T>(string AppName, string EntityType, Guid EntityId);
+
+/// <summary>
+/// Notification that committing a delete request failed.
+/// </summary>
+[Serializable]
+public sealed record DeleteCommitFault<T>(string AppName, string EntityType, Guid EntityId, string ErrorMessage);
