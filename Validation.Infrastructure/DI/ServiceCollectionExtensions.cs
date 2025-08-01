@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         // Add pipeline orchestrators
         services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
         services.AddScoped<IPipelineOrchestrator<SummarisationInput>, SummarisationPipelineOrchestrator>();
+        services.AddScoped<ValidationFlowOrchestrator>();
 
         // Add repository services (generic registration)
         services.AddScoped(typeof(ISummaryRecordRepository<>), typeof(EfCoreSummaryRecordRepository<>));
@@ -58,9 +59,9 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
-            // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
+            // Register the enhanced consumers without generic definition types to avoid MassTransit issues
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
             
             configureBus?.Invoke(x);
         });
@@ -91,6 +92,7 @@ public static class ServiceCollectionExtensions
         // Add pipeline orchestrators
         services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
         services.AddScoped<IPipelineOrchestrator<SummarisationInput>, SummarisationPipelineOrchestrator>();
+        services.AddScoped<ValidationFlowOrchestrator>();
 
         // Add MongoDB repository services
         services.AddScoped(typeof(ISummaryRecordRepository<>), typeof(MongoSummaryRecordRepository<>));
@@ -160,6 +162,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+
+        // Register flow configs for ValidationFlowOrchestrator
+        services.AddSingleton<IEnumerable<ValidationFlowConfig>>(configs);
 
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
