@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Validation.Infrastructure.DI;
 using Validation.Infrastructure.Metrics;
 using Validation.Domain.Events;
+using Validation.Domain;
 
 namespace Validation.Infrastructure.Pipeline;
 
@@ -17,17 +18,20 @@ public class ValidationFlowOrchestrator
     private readonly IMetricsCollector _metricsCollector;
     private readonly IValidationEventHub _eventHub;
     private readonly ILogger<ValidationFlowOrchestrator> _logger;
+    private readonly IEntityIdProvider _idProvider;
     private readonly List<ValidationFlowConfig> _flowConfigs;
 
     public ValidationFlowOrchestrator(
         IMetricsCollector metricsCollector,
         IValidationEventHub eventHub,
         ILogger<ValidationFlowOrchestrator> logger,
+        IEntityIdProvider idProvider,
         IEnumerable<ValidationFlowConfig> flowConfigs)
     {
         _metricsCollector = metricsCollector;
         _eventHub = eventHub;
         _logger = logger;
+        _idProvider = idProvider;
         _flowConfigs = flowConfigs.ToList();
     }
 
@@ -170,12 +174,8 @@ public class ValidationFlowOrchestrator
 
     private Guid GetEntityId<T>(T entity)
     {
-        // Try to get ID from entity - simplified implementation
-        var idProperty = typeof(T).GetProperty("Id");
-        if (idProperty?.GetValue(entity) is Guid id)
-            return id;
-        
-        return Guid.NewGuid(); // Generate if not found
+        var raw = _idProvider.GetId(entity);
+        return Guid.TryParse(raw, out var id) ? id : Guid.NewGuid();
     }
 }
 
