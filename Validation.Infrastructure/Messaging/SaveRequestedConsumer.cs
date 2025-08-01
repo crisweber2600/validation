@@ -26,9 +26,11 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
         var audit = new SaveAudit
         {
             Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            EntityId = context.Message.Id.ToString(),
+            ApplicationName = string.Empty,
             IsValid = isValid,
-            Metric = metric
+            Metric = metric,
+            BatchSize = 1
         };
         await _repository.AddAsync(audit, context.CancellationToken);
         await context.Publish(new SaveValidated(context.Message.Id, isValid, metric), context.CancellationToken);

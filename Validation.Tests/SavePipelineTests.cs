@@ -48,7 +48,7 @@ public class SavePipelineTests
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default)
             => throw new Exception("Repository failure for testing");
         
-        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+        public Task<SaveAudit?> GetLastAsync(string entityId, CancellationToken ct = default)
         {
             var audit = Audits.Where(a => a.EntityId == entityId)
                 .OrderByDescending(a => a.Timestamp)

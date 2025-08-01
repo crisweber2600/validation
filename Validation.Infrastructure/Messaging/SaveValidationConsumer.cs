@@ -20,7 +20,7 @@ public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
 
     public async Task Consume(ConsumeContext<SaveRequested> context)
     {
-        var last = await _repository.GetLastAsync(context.Message.Id, context.CancellationToken);
+        var last = await _repository.GetLastAsync(context.Message.Id.ToString(), context.CancellationToken);
         var metric = new Random().Next(0, 100);
         var rules = _planProvider.GetRules<T>();
         var isValid = _validator.Validate(last?.Metric ?? 0m, metric, rules);
@@ -28,9 +28,11 @@ public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
         var audit = new SaveAudit
         {
             Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            EntityId = context.Message.Id.ToString(),
+            ApplicationName = string.Empty,
             IsValid = isValid,
-            Metric = metric
+            Metric = metric,
+            BatchSize = 1
         };
 
         await _repository.AddAsync(audit, context.CancellationToken);
