@@ -1,3 +1,4 @@
+using System;
 using MassTransit;
 using System.Linq;
 using System.Linq.Expressions;
@@ -26,6 +27,17 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             configureBus?.Invoke(x);
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
+                cfg.UseInMemoryOutbox();
+                cfg.ReceiveEndpoint("delete_requests_queue", e =>
+                {
+                    e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
+                    e.UseInMemoryOutbox();
+                });
+                cfg.ConfigureEndpoints(context);
+            });
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
