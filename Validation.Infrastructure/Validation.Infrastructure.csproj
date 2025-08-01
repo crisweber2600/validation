@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Validation.Domain\Validation.Domain.csproj" />
+    <ProjectReference Include="..\ValidationFlow.Messages\ValidationFlow.Messages.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -12,6 +13,7 @@
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.4.0-rc9" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.0.0-rc9" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="3.1.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.10.0" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Validation.Domain.Entities;
@@ -92,5 +93,53 @@ public class AddValidationFlowsTests
         // Verify that validation plan provider was still configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         Assert.NotNull(planProvider);
+    }
+
+    [Fact]
+    public void AddValidationFlows_registers_delete_commit_consumers_and_manual_rules()
+    {
+        const string json = """
+            [{
+                "Type": "Validation.Domain.Entities.Item, Validation.Domain",
+                "SaveValidation": true,
+                "SaveCommit": true,
+                "DeleteValidation": true,
+                "DeleteCommit": true,
+                "ManualRules": [
+                    "new System.Func<Validation.Domain.Entities.Item, bool>(i => i.Metric > 10)"
+                ]
+            }]
+            """;
+
+        using var doc = JsonDocument.Parse(json);
+        var configs = new List<ValidationFlowConfig>();
+        foreach (var element in doc.RootElement.EnumerateArray())
+        {
+            var config = new ValidationFlowConfig
+            {
+                Type = element.GetProperty("Type").GetString()!,
+                SaveValidation = element.GetProperty("SaveValidation").GetBoolean(),
+                SaveCommit = element.GetProperty("SaveCommit").GetBoolean(),
+                DeleteValidation = element.GetProperty("DeleteValidation").GetBoolean(),
+                DeleteCommit = element.GetProperty("DeleteCommit").GetBoolean(),
+                ManualRules = element.GetProperty("ManualRules").EnumerateArray().Select(r => r.GetString()!).ToList()
+            };
+            configs.Add(config);
+        }
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("validation-flows-delete-commit"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
+
+        var validator = scope.ServiceProvider.GetRequiredService<IManualValidatorService>();
+        Assert.True(validator.Validate(new Item(20)));
+        Assert.False(validator.Validate(new Item(5)));
     }
 }

@@ -1,6 +1,9 @@
 using MassTransit;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -45,10 +48,12 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
-            // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
+            // Register the enhanced consumers with reliability definitions
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(
+                typeof(ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(
+                typeof(ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>));
+
             configureBus?.Invoke(x);
         });
 
@@ -138,6 +143,27 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
+        // Register manual rules from configuration
+        foreach (var config in configs)
+        {
+            if (config.ManualRules != null && config.ManualRules.Count > 0)
+            {
+                var type = Type.GetType(config.Type, true)!;
+                var options = ScriptOptions.Default
+                    .AddReferences(type.Assembly)
+                    .AddImports(type.Namespace ?? string.Empty);
+
+                foreach (var ruleText in config.ManualRules)
+                {
+                    var genericMethod = typeof(ServiceCollectionExtensions)
+                        .GetMethod(nameof(AddValidatorRule))!
+                        .MakeGenericMethod(type);
+                    var rule = CSharpScript.EvaluateAsync(ruleText, options).Result;
+                    genericMethod.Invoke(null, new object?[] { services, rule });
+                }
+            }
+        }
+
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
         {
@@ -167,6 +193,11 @@ public static class ServiceCollectionExtensions
                         x.AddConsumer(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
                         services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
                     }
+                }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
                 }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
