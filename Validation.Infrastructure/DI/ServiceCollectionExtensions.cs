@@ -20,7 +20,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
-        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddValidatorService();
 
         services.AddMassTransit(x =>
         {
@@ -41,7 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
-        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddValidatorService();
 
         services.AddMassTransit(x =>
         {
@@ -55,19 +55,21 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddValidatorService(this IServiceCollection services)
+    {
+        if (!services.Any(d => d.ServiceType == typeof(IManualValidatorService)))
+        {
+            var instance = new ManualValidatorService();
+            services.AddSingleton<IManualValidatorService>(instance);
+        }
+        return services;
+    }
+
     public static IServiceCollection AddValidatorRule<T>(this IServiceCollection services, Func<T, bool> rule)
     {
+        services.AddValidatorService();
         var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IManualValidatorService));
-        ManualValidatorService svc;
-        if (descriptor?.ImplementationInstance is ManualValidatorService existing)
-        {
-            svc = existing;
-        }
-        else
-        {
-            svc = new ManualValidatorService();
-            services.AddSingleton<IManualValidatorService>(svc);
-        }
+        ManualValidatorService svc = (ManualValidatorService)descriptor!.ImplementationInstance!;
         svc.AddRule(rule);
         return services;
     }
