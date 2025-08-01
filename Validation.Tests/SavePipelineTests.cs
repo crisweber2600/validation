@@ -6,6 +6,7 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using Validation.Domain;
 
 namespace Validation.Tests;
 
@@ -57,18 +58,38 @@ public class SavePipelineTests
         }
     }
 
+    private class IdProvider : IEntityIdProvider
+    {
+        public Guid GetId<T>(T entity) => ((dynamic)entity).Id;
+    }
+
+    private class AppNameProvider : IApplicationNameProvider
+    {
+        public string ApplicationName => "TestApp";
+    }
+
+    private class ManualValidator : IManualValidatorService
+    {
+        public bool Validate(object instance) => true;
+    }
+
     [Fact]
     public async Task Pipeline_processes_save_request_without_fault()
     {
         var repo = new InMemorySaveAuditRepository();
         var harness = new InMemoryTestHarness();
-        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        harness.Consumer(() => new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repo,
+            new ManualValidator(),
+            new IdProvider(),
+            new AppNameProvider()));
         harness.Consumer(() => new SaveCommitConsumer<Item>(repo));
 
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>(new Item(10m)));
 
             Assert.True(await harness.Published.Any<SaveValidated<Item>>());
             Assert.False(await harness.Published.Any<SaveCommitFault<Item>>());
@@ -84,13 +105,18 @@ public class SavePipelineTests
     {
         var repo = new FailingRepository();
         var harness = new InMemoryTestHarness();
-        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        harness.Consumer(() => new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repo,
+            new ManualValidator(),
+            new IdProvider(),
+            new AppNameProvider()));
         harness.Consumer(() => new SaveCommitConsumer<Item>(repo));
 
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>(new Item(10m)));
 
             Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
         }
@@ -105,14 +131,19 @@ public class SavePipelineTests
     {
         var repo = new InMemorySaveAuditRepository();
         var harness = new InMemoryTestHarness();
-        var validationConsumer = harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        var validationConsumer = harness.Consumer(() => new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repo,
+            new ManualValidator(),
+            new IdProvider(),
+            new AppNameProvider()));
 
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveRequested<Item>(new Item(5m)));
 
-            Assert.True(await validationConsumer.Consumed.Any<SaveRequested>());
+            Assert.True(await validationConsumer.Consumed.Any<SaveRequested<Item>>());
             Assert.True(await harness.Published.Any<SaveValidated<Item>>());
         }
         finally
