@@ -150,6 +150,7 @@ public class EnhancedManualValidatorService : IEnhancedManualValidatorService
                             _logger.LogError(ex, "Error executing named rule {RuleName} for type {Type}",
                                 kvp.Key, type.Name);
                             result.IsValid = false;
+                            result.FailedRules.Add(kvp.Key);
                             result.Errors.Add($"Rule '{kvp.Key}' execution failed: {ex.Message}");
                         }
                     }
