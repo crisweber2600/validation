@@ -10,6 +10,7 @@ using Serilog;
 using Validation.Domain.Validation;
 using Validation.Domain.Events;
 using Validation.Domain.Repositories;
+using Validation.Domain;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
@@ -31,6 +32,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
+        services.AddSingleton<IEntityIdProvider>(new ReflectionBasedEntityIdProvider());
+        services.AddSingleton<IApplicationNameProvider>(new StaticApplicationNameProvider("ValidationService"));
 
         // Add unified event hub
         services.AddSingleton<IValidationEventHub, ValidationEventHub>();
