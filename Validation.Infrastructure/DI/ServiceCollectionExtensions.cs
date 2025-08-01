@@ -15,6 +15,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Setup;
 
 namespace Validation.Infrastructure.DI;
 
@@ -104,6 +105,48 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddValidatorService(this IServiceCollection services)
     {
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    public static IServiceCollection SetupValidation(
+        this IServiceCollection services,
+        Action<SetupValidationBuilder> configure)
+    {
+        var builder = new SetupValidationBuilder(services);
+        configure(builder);
+        return services;
+    }
+
+    public static IServiceCollection AddSetupValidation<T>(
+        this IServiceCollection services,
+        Action<SetupValidationBuilder> configureDb,
+        Func<T, decimal> metricSelector,
+        ThresholdType thresholdType,
+        decimal thresholdValue)
+    {
+        services.SetupValidation(configureDb);
+
+        services.AddSingleton<IValidationPlanProvider>(sp =>
+        {
+            var provider = new InMemoryValidationPlanProvider();
+            var plan = new ValidationPlan(o => metricSelector((T)o), thresholdType, thresholdValue);
+            provider.AddPlan<T>(plan);
+            return provider;
+        });
+
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddScoped<SummarisationValidator>();
+
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveValidationConsumer<T>>();
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+
         return services;
     }
 

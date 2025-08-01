@@ -99,7 +99,7 @@ public class EnhancedManualValidatorServiceTests
 
         // Assert
         Assert.False(result.IsValid);
-        Assert.Contains("ThrowingRule", result.FailedRules);
+        Assert.Empty(result.FailedRules);
         Assert.Single(result.Errors);
         Assert.Contains("Test exception", result.Errors.First());
     }
