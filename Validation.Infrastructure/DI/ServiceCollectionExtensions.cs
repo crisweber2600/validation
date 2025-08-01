@@ -10,6 +10,7 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.DI;
 
@@ -76,6 +77,29 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddValidatorService(this IServiceCollection services)
     {
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the metrics processing pipeline. The pipeline gathers metrics,
+    /// summarizes them, validates the summary against the last persisted value,
+    /// commits the audit when valid and discards otherwise.
+    /// </summary>
+    public static IServiceCollection AddMetricsPipeline<T>(
+        this IServiceCollection services,
+        Func<IServiceProvider, IGatherService>? gatherFactory = null)
+    {
+        if (gatherFactory != null)
+            services.AddSingleton(gatherFactory);
+        else
+            services.AddSingleton<IGatherService, InMemoryGatherService>();
+
+        services.AddSingleton<SummarisationValidator>();
+        services.AddSingleton<SummarizationService>();
+        services.AddSingleton<ValidationService>();
+        services.AddSingleton<CommitService>();
+        services.AddSingleton<DiscardHandler>();
+        services.AddHostedService<PipelineOrchestrator<T>>();
         return services;
     }
 
