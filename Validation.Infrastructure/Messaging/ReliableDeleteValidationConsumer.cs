@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using ValidationFlow.Messages;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Reliability;
@@ -10,7 +11,7 @@ using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Messaging;
 
-public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
+public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested<T>>
 {
     private readonly IValidationPlanProvider _planProvider;
     private readonly SummarisationValidator _validator;
@@ -33,14 +34,14 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         _logger = logger;
     }
 
-    public async Task Consume(ConsumeContext<DeleteRequested> context)
+    public async Task Consume(ConsumeContext<DeleteRequested<T>> context)
     {
         using var activity = ActivitySource.StartActivity("DeleteValidation");
-        activity?.SetTag("entity.id", context.Message.Id.ToString());
+        activity?.SetTag("entity.id", context.Message.EntityId.ToString());
         activity?.SetTag("entity.type", typeof(T).Name);
 
         _logger.LogInformation("Starting delete validation for entity {EntityId} of type {EntityType}",
-            context.Message.Id, typeof(T).Name);
+            context.Message.EntityId, typeof(T).Name);
 
         try
         {
@@ -50,15 +51,15 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
             }, context.CancellationToken);
 
             _logger.LogInformation("Delete validation completed successfully for entity {EntityId}",
-                context.Message.Id);
+                context.Message.EntityId);
         }
         catch (DeletePipelineCircuitOpenException ex)
         {
             _logger.LogError(ex, "Delete validation failed due to circuit breaker being open for entity {EntityId}",
-                context.Message.Id);
+                context.Message.EntityId);
             
             // Send to dead letter queue or handle graceful degradation
-            await context.Publish(new DeleteValidationFailed(context.Message.Id, "Circuit breaker open", typeof(T).Name),
+            await context.Publish(new DeleteValidationFailed(context.Message.EntityId, "Circuit breaker open", typeof(T).Name),
                 context.CancellationToken);
             
             throw;
@@ -66,24 +67,24 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         catch (DeletePipelineReliabilityException ex)
         {
             _logger.LogError(ex, "Delete validation failed after all retry attempts for entity {EntityId}",
-                context.Message.Id);
+                context.Message.EntityId);
             
-            await context.Publish(new DeleteValidationFailed(context.Message.Id, ex.Message, typeof(T).Name),
+            await context.Publish(new DeleteValidationFailed(context.Message.EntityId, ex.Message, typeof(T).Name),
                 context.CancellationToken);
             
             throw;
         }
     }
 
-    private async Task ValidateDeleteAsync(ConsumeContext<DeleteRequested> context, CancellationToken cancellationToken)
+    private async Task ValidateDeleteAsync(ConsumeContext<DeleteRequested<T>> context, CancellationToken cancellationToken)
     {
         // Get the last audit record to understand the current state
-        var lastAudit = await _auditRepository.GetLastAsync(context.Message.Id, cancellationToken);
+        var lastAudit = await _auditRepository.GetLastAsync(context.Message.EntityId, cancellationToken);
         
         if (lastAudit == null)
         {
             _logger.LogWarning("No audit record found for entity {EntityId}. Allowing delete.",
-                context.Message.Id);
+                context.Message.EntityId);
         }
 
         // Get validation rules for this entity type
@@ -93,13 +94,13 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         var isValid = _validator.Validate(lastAudit?.Metric ?? 0m, 0m, rules);
 
         _logger.LogDebug("Delete validation result for entity {EntityId}: {IsValid}",
-            context.Message.Id, isValid);
+            context.Message.EntityId, isValid);
 
         // Create audit record for the delete operation
         var deleteAudit = new SaveAudit
         {
             Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            EntityId = context.Message.EntityId,
             IsValid = isValid,
             Metric = 0m, // Zero metric for delete operation
             Timestamp = DateTime.UtcNow
@@ -110,12 +111,12 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         // Publish validation result
         if (isValid)
         {
-            await context.Publish(new DeleteValidated(context.Message.Id, deleteAudit.Id, typeof(T).Name),
+            await context.Publish(new DeleteValidated<T>(context.Message.AppName, context.Message.EntityType, context.Message.EntityId),
                 cancellationToken);
         }
         else
         {
-            await context.Publish(new DeleteRejected(context.Message.Id, deleteAudit.Id, "Validation failed", typeof(T).Name),
+            await context.Publish(new DeleteRejected(context.Message.EntityId, deleteAudit.Id, "Validation failed", typeof(T).Name),
                 cancellationToken);
         }
     }

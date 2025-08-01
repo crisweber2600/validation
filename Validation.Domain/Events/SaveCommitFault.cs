@@ -1,3 +1,6 @@
+using System;
+
 namespace Validation.Domain.Events;
 
+[Obsolete("Use ValidationFlow.Messages.SaveCommitFault message instead")]
 public record SaveCommitFault<T>(Guid EntityId, Guid AuditId, string Error);

@@ -1,8 +1,9 @@
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Messaging;
 using MassTransit;
+using Validation.Domain.Entities;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.DI;
 
@@ -27,9 +28,9 @@ public class ValidationFlowIntegrationTests
         {
             using var scope = provider.CreateScope();
             var publish = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
-            await publish.Publish(new SaveRequested(Guid.NewGuid()));
+            await publish.Publish(new SaveRequested<object>("test", "Item", Guid.NewGuid(), new object()));
 
-            Assert.True(await harness.Published.Any<SaveValidated>());
+            Assert.True(await harness.Published.Any<SaveValidated<object>>());
             var ctx = scope.ServiceProvider.GetRequiredService<TestDbContext>();
             Assert.Equal(1, ctx.SaveAudits.Count());
         }

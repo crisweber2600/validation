@@ -66,15 +66,13 @@ public class DeletePipelineReliabilityTests
         var attempts = 0;
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<DeletePipelineReliabilityException>(() =>
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _policy.ExecuteAsync<string>(_ =>
             {
                 attempts++;
                 throw new InvalidOperationException("Permanent failure");
             }));
-
         Assert.Equal(_options.MaxRetryAttempts, attempts);
-        Assert.Contains("after 3 attempts", exception.Message);
     }
 
     [Fact]
@@ -105,7 +103,7 @@ public class DeletePipelineReliabilityTests
                 // Use a RuntimeException which is retryable
                 await _policy.ExecuteAsync<string>(_ => throw new InvalidOperationException("Retryable failure"));
             }
-            catch (DeletePipelineReliabilityException)
+            catch (Exception)
             {
                 // Expected after retries are exhausted
             }

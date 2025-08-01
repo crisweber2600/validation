@@ -1,5 +1,5 @@
 using MassTransit;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Domain.Repositories;
 
 namespace Validation.Infrastructure.Repositories;
@@ -15,11 +15,14 @@ public class EventPublishingRepository<T> : IEntityRepository<T>
 
     public Task SaveAsync(T entity, string? app = null, CancellationToken ct = default)
     {
-        return _bus.Publish(new SaveRequested<T>(entity, app), ct);
+        var id = (Guid?)entity?.GetType().GetProperty("Id")?.GetValue(entity) ?? Guid.Empty;
+        var appName = app ?? typeof(T).Assembly.GetName().Name ?? "App";
+        return _bus.Publish(new SaveRequested<T>(appName, typeof(T).Name, id, entity), ct);
     }
 
     public Task DeleteAsync(Guid id, string? app = null, CancellationToken ct = default)
     {
-        return _bus.Publish(new DeleteRequested(id), ct);
+        var appName = app ?? typeof(T).Assembly.GetName().Name ?? "App";
+        return _bus.Publish(new DeleteRequested<T>(appName, typeof(T).Name, id), ct);
     }
 }
