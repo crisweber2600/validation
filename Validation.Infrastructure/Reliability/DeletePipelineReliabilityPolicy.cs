@@ -52,9 +52,8 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
+                if (ShouldRetry(ex))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
 
                     _logger.LogWarning(ex, 
@@ -81,6 +80,7 @@ public class DeletePipelineReliabilityPolicy
             }
         }
 
+        Interlocked.Increment(ref _consecutiveFailures);
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);
         
         // Always wrap retryable exceptions that exhausted retries in DeletePipelineReliabilityException
@@ -92,7 +92,7 @@ public class DeletePipelineReliabilityPolicy
         Func<CancellationToken, T> operation,
         CancellationToken cancellationToken = default)
     {
-        return await ExecuteAsync<T>(ct => Task.FromResult(operation(ct)), cancellationToken);
+        return await ExecuteAsync<T>(ct => Task.Run(() => operation(ct), ct), cancellationToken);
     }
 
     public async Task ExecuteAsync(
@@ -106,16 +106,10 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
-        if (exception is ArgumentException or ArgumentNullException)
-            return false;
-
-        return true;
+        return exception is not ArgumentException and not ArgumentNullException;
     }
 
     private bool IsCircuitOpen()
