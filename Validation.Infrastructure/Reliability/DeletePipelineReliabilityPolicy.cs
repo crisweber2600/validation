@@ -52,9 +52,8 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
+                if (ShouldRetry(ex))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
 
                     _logger.LogWarning(ex, 
@@ -68,7 +67,6 @@ public class DeletePipelineReliabilityPolicy
                     }
                     else
                     {
-                        // Retryable exception but retries exhausted - this will be wrapped below
                         break;
                     }
                 }
@@ -76,13 +74,16 @@ public class DeletePipelineReliabilityPolicy
                 {
                     // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
+                    Interlocked.Increment(ref _consecutiveFailures);
                     throw;
                 }
             }
         }
 
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);
-        
+
+        Interlocked.Increment(ref _consecutiveFailures);
+
         // Always wrap retryable exceptions that exhausted retries in DeletePipelineReliabilityException
         throw new DeletePipelineReliabilityException(
             $"Delete pipeline operation failed after {attempts} attempts", lastException);
@@ -106,16 +107,9 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
-        // Don't retry on certain exception types
-        if (exception is ArgumentException or ArgumentNullException)
-            return false;
-
-        return true;
+        return exception is not ArgumentException and not ArgumentNullException;
     }
 
     private bool IsCircuitOpen()
