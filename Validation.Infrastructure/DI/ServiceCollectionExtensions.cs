@@ -15,6 +15,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.DI;
 
@@ -104,6 +105,19 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddValidatorService(this IServiceCollection services)
     {
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    public static IServiceCollection AddMetricsPipeline(this IServiceCollection services, Action<PipelineWorkerOptions>? configure = null)
+    {
+        services.AddSingleton<PipelineOrchestrator>();
+        services.AddSingleton<PipelineWorkerOptions>(sp =>
+        {
+            var opts = new PipelineWorkerOptions();
+            configure?.Invoke(opts);
+            return opts;
+        });
+        services.AddHostedService<PipelineWorker>();
         return services;
     }
 
