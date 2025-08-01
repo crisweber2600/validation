@@ -10,6 +10,7 @@ using Validation.Infrastructure.DI;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Auditing;
+using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Setup;
 
@@ -25,6 +26,7 @@ public class SetupValidationBuilder
     private bool _auditingEnabled = true;
     private bool _reliabilityEnabled = true;
     private bool _observabilityEnabled = true;
+    private DatabaseProvider _databaseProvider = DatabaseProvider.None;
 
     public SetupValidationBuilder(IServiceCollection services)
     {
@@ -37,6 +39,7 @@ public class SetupValidationBuilder
     public SetupValidationBuilder UseEntityFramework<TContext>(Action<DbContextOptionsBuilder>? configureOptions = null)
         where TContext : DbContext
     {
+        _databaseProvider = DatabaseProvider.EntityFramework;
         _customRegistrations.Add(services =>
         {
             if (configureOptions != null)
@@ -57,11 +60,13 @@ public class SetupValidationBuilder
     /// </summary>
     public SetupValidationBuilder UseMongoDB(string connectionString, string databaseName)
     {
+        _databaseProvider = DatabaseProvider.MongoDb;
         _customRegistrations.Add(services =>
         {
             var client = new MongoClient(connectionString);
             var database = client.GetDatabase(databaseName);
             services.AddSingleton(database);
+            services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         });
         return this;
     }
@@ -72,6 +77,18 @@ public class SetupValidationBuilder
     public SetupValidationBuilder AddValidationFlow<T>(Action<ValidationFlowBuilder<T>>? configure = null)
     {
         var builder = new ValidationFlowBuilder<T>();
+        configure?.Invoke(builder);
+        _flowConfigs.Add(builder.Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Add a validation flow with a metric selector
+    /// </summary>
+    public SetupValidationBuilder AddValidationFlow<T>(Expression<Func<T, decimal>> metricSelector, Action<ValidationFlowBuilder<T>>? configure = null)
+    {
+        var builder = new ValidationFlowBuilder<T>();
+        builder.WithMetricSelector(metricSelector);
         configure?.Invoke(builder);
         _flowConfigs.Add(builder.Build());
         return this;
@@ -297,6 +314,15 @@ public class ValidationFlowBuilder<T>
         return this;
     }
 
+    public ValidationFlowBuilder<T> WithMetricSelector(Expression<Func<T, decimal>> selector)
+    {
+        if (selector.Body is MemberExpression member)
+        {
+            _config.MetricProperty = member.Member.Name;
+        }
+        return this;
+    }
+
     public ValidationFlowBuilder<T> WithThreshold<TProperty>(
         Expression<Func<T, TProperty>> propertySelector,
         ThresholdType thresholdType,
@@ -427,4 +453,24 @@ public static class SetupValidationExtensions
         configure?.Invoke(builder);
         return builder.Build();
     }
+
+    /// <summary>
+    /// Configure and register validation with metric selector helper
+    /// </summary>
+    public static IServiceCollection AddSetupValidation<T>(this IServiceCollection services,
+        Action<SetupValidationBuilder> configure,
+        Expression<Func<T, decimal>> metricSelector)
+    {
+        var builder = services.AddSetupValidation();
+        builder.AddValidationFlow(metricSelector);
+        configure(builder);
+        return builder.Build();
+    }
+}
+
+internal enum DatabaseProvider
+{
+    None,
+    EntityFramework,
+    MongoDb
 }

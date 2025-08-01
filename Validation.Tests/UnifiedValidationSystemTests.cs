@@ -9,6 +9,8 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Setup;
 using Validation.Infrastructure.DI;
 using Validation.Infrastructure;
+using Validation.Infrastructure.Repositories;
+using MongoDB.Driver;
 using Xunit;
 
 namespace Validation.Tests;
@@ -165,6 +167,34 @@ public class UnifiedValidationSystemTests
         Assert.IsAssignableFrom<Validation.Domain.Events.IAuditableEvent>(saveEvent);
         Assert.IsAssignableFrom<Validation.Domain.Events.IRetryableEvent>(failureEvent);
         Assert.Equal(2, failureEvent.AttemptNumber);
+    }
+
+    [Fact]
+    public void AddSetupValidation_EF_registers_services_with_metric_selector()
+    {
+        var services = new ServiceCollection();
+
+        services.AddSetupValidation<Item>(b => b.UseEntityFramework<TestDbContext>(), i => i.Metric);
+
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetService<IValidationPlanProvider>());
+        Assert.IsType<EfCoreSaveAuditRepository>(provider.GetService<ISaveAuditRepository>());
+        Assert.NotNull(provider.GetService<DbContext>());
+    }
+
+    [Fact]
+    public void AddSetupValidation_Mongo_registers_services_with_metric_selector()
+    {
+        var services = new ServiceCollection();
+
+        services.AddSetupValidation<Item>(b => b.UseMongoDB("mongodb://localhost:27017", "val"), i => i.Metric);
+
+        var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetService<IValidationPlanProvider>());
+        Assert.IsType<MongoSaveAuditRepository>(provider.GetService<ISaveAuditRepository>());
+        Assert.NotNull(provider.GetService<IMongoDatabase>());
     }
 }
 

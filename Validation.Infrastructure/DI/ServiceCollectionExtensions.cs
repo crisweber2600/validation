@@ -45,10 +45,10 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
-            // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
+            // Register the enhanced consumers without generic definitions
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
+
             configureBus?.Invoke(x);
         });
 
@@ -115,7 +115,7 @@ public static class ServiceCollectionExtensions
             var provider = new InMemoryValidationPlanProvider();
             foreach (var config in configs)
             {
-                if (!string.IsNullOrEmpty(config.MetricProperty) && config.ThresholdType.HasValue && config.ThresholdValue.HasValue)
+                if (!string.IsNullOrEmpty(config.MetricProperty))
                 {
                     var type = Type.GetType(config.Type, true)!;
                     var param = Expression.Parameter(typeof(object), "o");
@@ -123,8 +123,11 @@ public static class ServiceCollectionExtensions
                     var prop = Expression.Property(cast, config.MetricProperty);
                     var conv = Expression.Convert(prop, typeof(decimal));
                     var lambda = Expression.Lambda<Func<object, decimal>>(conv, param).Compile();
-                    var plan = new ValidationPlan(lambda, config.ThresholdType.Value, config.ThresholdValue.Value);
-                    
+
+                    ValidationPlan plan = config.ThresholdType.HasValue && config.ThresholdValue.HasValue
+                        ? new ValidationPlan(lambda, config.ThresholdType.Value, config.ThresholdValue.Value)
+                        : new ValidationPlan(lambda);
+
                     typeof(InMemoryValidationPlanProvider).GetMethod("AddPlan")!
                         .MakeGenericMethod(type)
                         .Invoke(provider, new object[] { plan });

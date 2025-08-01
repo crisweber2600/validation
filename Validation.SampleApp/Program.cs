@@ -19,28 +19,11 @@ class Program
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                // Configure the unified validation system using the fluent builder
-                services.AddSetupValidation()
-                    .AddValidationFlow<Item>(flow => flow
-                        .EnableSaveValidation()
-                        .EnableDeleteValidation()
-                        .EnableSoftDelete()
-                        .WithThreshold(x => x.Metric, ThresholdType.GreaterThan, 5)
-                        .WithValidationTimeout(TimeSpan.FromMinutes(1))
-                        .EnableAuditing())
-                    
-                    .AddRule<Item>("PositiveValue", item => item.Metric > 0)
-                    .AddRule<Item>("ReasonableRange", item => item.Metric <= 1000)
-                    
-                    .ConfigureMetrics(metrics => metrics
-                        .WithProcessingInterval(TimeSpan.FromSeconds(30))
-                        .EnableDetailedMetrics(false))
-                    
-                    .ConfigureReliability(reliability => reliability
-                        .WithMaxRetries(2)
-                        .WithRetryDelay(TimeSpan.FromMilliseconds(500)))
-                    
-                    .Build();
+                // Configure the unified validation system using the new helper
+                services.AddSetupValidation<Item>(builder =>
+                {
+                    builder.UseEntityFramework<AppDbContext>();
+                }, item => item.Metric);
             })
             .ConfigureLogging(logging =>
             {
@@ -154,3 +137,9 @@ class Program
         }
     }
 }
+public class AppDbContext : Microsoft.EntityFrameworkCore.DbContext
+{
+    public AppDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<AppDbContext> options) : base(options) { }
+    public Microsoft.EntityFrameworkCore.DbSet<Validation.Infrastructure.SaveAudit> SaveAudits => Set<Validation.Infrastructure.SaveAudit>();
+}
+

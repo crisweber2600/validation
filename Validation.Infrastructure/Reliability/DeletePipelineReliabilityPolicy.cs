@@ -108,9 +108,6 @@ public class DeletePipelineReliabilityPolicy
 
     private bool ShouldRetry(Exception exception, int attempt)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;
