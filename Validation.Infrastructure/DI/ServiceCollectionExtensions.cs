@@ -10,6 +10,7 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.DI;
 
@@ -182,6 +183,21 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the default metric pipeline components and optional custom gatherer.
+    /// </summary>
+    public static IServiceCollection AddMetricsPipeline<T>(this IServiceCollection services, Func<IServiceProvider, IGatherService>? gatherFactory = null)
+    {
+        services.AddSingleton<IEventPublisher, NullEventPublisher>();
+        services.AddSingleton(provider => gatherFactory?.Invoke(provider) ?? new InMemoryGatherService());
+        services.AddSingleton<IValidationService, ValidationService>();
+        services.AddSingleton<SummarizationService>();
+        services.AddSingleton<CommitService>();
+        services.AddSingleton<DiscardHandler>();
+        services.AddHostedService<PipelineOrchestrator<T>>();
         return services;
     }
 }
