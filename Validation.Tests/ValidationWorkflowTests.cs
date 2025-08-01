@@ -1,6 +1,7 @@
 using MassTransit;
 using MassTransit.Testing;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
+using Validation.Domain.Entities;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 
@@ -13,16 +14,17 @@ public class ValidationWorkflowTests
     {
         var repository = new InMemorySaveAuditRepository();
         var rule = new RawDifferenceRule(100); // always valid
-        var consumer = new SaveRequestedConsumer(repository, rule);
+        var consumer = new SaveRequestedConsumer<Item>(repository, rule);
 
         var harness = new InMemoryTestHarness();
         var consumerHarness = harness.Consumer(() => consumer);
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
-            Assert.True(await harness.Consumed.Any<SaveRequested>());
-            Assert.True(await consumerHarness.Consumed.Any<SaveRequested>());
+            var item = new Item(5);
+            await harness.InputQueueSendEndpoint.Send(new ValidationFlow.Messages.SaveRequested<Item>("test", nameof(Item), item.Id, item));
+            Assert.True(await harness.Consumed.Any<ValidationFlow.Messages.SaveRequested<Item>>());
+            Assert.True(await consumerHarness.Consumed.Any<ValidationFlow.Messages.SaveRequested<Item>>());
             Assert.Single(repository.Audits);
         }
         finally

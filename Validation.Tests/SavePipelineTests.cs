@@ -1,7 +1,7 @@
 using MassTransit;
 using MassTransit.Testing;
 using Validation.Domain.Entities;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
@@ -68,10 +68,11 @@ public class SavePipelineTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            var item = new Item(0);
+            await harness.InputQueueSendEndpoint.Send(new ValidationFlow.Messages.SaveRequested<Item>("test", nameof(Item), item.Id, item));
 
-            Assert.True(await harness.Published.Any<SaveValidated<Item>>());
-            Assert.False(await harness.Published.Any<SaveCommitFault<Item>>());
+            Assert.True(await harness.Published.Any<ValidationFlow.Messages.SaveValidated<Item>>());
+            Assert.False(await harness.Published.Any<ValidationFlow.Messages.SaveCommitFault<Item>>());
         }
         finally
         {
@@ -90,9 +91,10 @@ public class SavePipelineTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            var item = new Item(1);
+            await harness.InputQueueSendEndpoint.Send(new ValidationFlow.Messages.SaveRequested<Item>("test", nameof(Item), item.Id, item));
 
-            Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
+            Assert.True(await harness.Published.Any<ValidationFlow.Messages.SaveCommitFault<Item>>());
         }
         finally
         {
@@ -110,10 +112,11 @@ public class SavePipelineTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            var item2 = new Item(2);
+            await harness.InputQueueSendEndpoint.Send(new ValidationFlow.Messages.SaveRequested<Item>("test", nameof(Item), item2.Id, item2));
 
-            Assert.True(await validationConsumer.Consumed.Any<SaveRequested>());
-            Assert.True(await harness.Published.Any<SaveValidated<Item>>());
+            Assert.True(await validationConsumer.Consumed.Any<ValidationFlow.Messages.SaveRequested<Item>>());
+            Assert.True(await harness.Published.Any<ValidationFlow.Messages.SaveValidated<Item>>());
         }
         finally
         {

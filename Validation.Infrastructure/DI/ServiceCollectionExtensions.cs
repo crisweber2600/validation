@@ -208,7 +208,7 @@ public static class ValidationFlowServiceCollectionExtensions
         return options.Services;
     }
 
-    public static IServiceCollection AddValidationFlow<TRule>(this IServiceCollection services, Action<ValidationFlowOptions>? configure = null)
+    public static IServiceCollection AddValidationFlow<TEntity, TRule>(this IServiceCollection services, Action<ValidationFlowOptions>? configure = null)
         where TRule : class, IValidationRule
     {
         services.AddScoped<IValidationRule, TRule>();
@@ -217,7 +217,7 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddScoped<SummarisationValidator>();
         services.AddMassTransitTestHarness(x =>
         {
-            x.AddConsumer<SaveRequestedConsumer>();
+            x.AddConsumer(typeof(SaveRequestedConsumer<>).MakeGenericType(typeof(TEntity)));
             x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
         });
         services.AddLogging(b => b.AddSerilog());

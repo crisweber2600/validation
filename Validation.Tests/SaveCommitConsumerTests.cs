@@ -1,9 +1,10 @@
 using MassTransit;
 using MassTransit.Testing;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
+using Validation.Domain.Entities;
 using Validation.Domain.Entities;
 
 namespace Validation.Tests;
@@ -31,9 +32,10 @@ public class SaveCommitConsumerTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>(Guid.NewGuid(), Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(
+                new ValidationFlow.Messages.SaveValidated<Item>("test", nameof(Item), Guid.NewGuid(), new Item(5), true));
 
-            Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
+            Assert.True(await harness.Published.Any<ValidationFlow.Messages.SaveCommitFault<Item>>());
         }
         finally
         {
