@@ -26,7 +26,9 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
         var audit = new SaveAudit
         {
             Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            EntityId = context.Message.Id.ToString(),
+            ApplicationName = string.Empty,
+            BatchSize = 0,
             IsValid = isValid,
             Metric = metric
         };
