@@ -10,6 +10,7 @@ using Serilog;
 using Validation.Domain.Validation;
 using Validation.Domain.Events;
 using Validation.Domain.Repositories;
+using Validation.Domain.Providers;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
@@ -33,7 +34,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
 
         // Add unified event hub
-        services.AddSingleton<IValidationEventHub, ValidationEventHub>();
+        services.AddSingleton<IValidationEventHub, Domain.Events.ValidationEventHub>();
+
+        // Add providers for unified validation system
+        services.AddSingleton<IEntityIdProvider, ReflectionEntityIdProvider>();
+        services.AddSingleton<IApplicationNameProvider, ConfigurationApplicationNameProvider>();
+        services.AddSingleton<ISequenceValidator, SequenceValidator>();
 
         // Add pipeline orchestrators
         services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
@@ -57,11 +63,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NannyRecordAuditService>();
         services.AddSingleton<NannyRecordAuditOptions>();
 
+        // Add batch processing options
+        services.AddSingleton<BatchProcessingOptions>();
+
         services.AddMassTransit(x =>
         {
             // Register the enhanced consumers without generic definition types to avoid MassTransit issues
             x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
             x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
+            x.AddConsumer<GenericSaveValidationConsumer>();
             
             configureBus?.Invoke(x);
         });
@@ -87,7 +97,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
         // Add unified event hub
-        services.AddSingleton<IValidationEventHub, ValidationEventHub>();
+        services.AddSingleton<IValidationEventHub, Domain.Events.ValidationEventHub>();
+
+        // Add providers for unified validation system
+        services.AddSingleton<IEntityIdProvider, ReflectionEntityIdProvider>();
+        services.AddSingleton<IApplicationNameProvider, EnvironmentApplicationNameProvider>();
+        services.AddSingleton<ISequenceValidator, SequenceValidator>();
 
         // Add pipeline orchestrators
         services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
@@ -99,6 +114,7 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
+            x.AddConsumer<GenericSaveValidationConsumer>();
             configureBus?.Invoke(x);
         });
 
@@ -169,6 +185,9 @@ public static class ServiceCollectionExtensions
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
         {
+            // Add generic consumer for all flows
+            x.AddConsumer<GenericSaveValidationConsumer>();
+            
             foreach (var config in configs)
             {
                 var type = Type.GetType(config.Type, true)!;
@@ -176,6 +195,10 @@ public static class ServiceCollectionExtensions
                 {
                     x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                    
+                    // Add batch consumer if enabled
+                    x.AddConsumer(typeof(BatchSaveValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(BatchSaveValidationConsumer<>).MakeGenericType(type));
                 }
                 if (config.SaveCommit)
                 {
