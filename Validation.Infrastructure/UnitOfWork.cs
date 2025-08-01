@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 using Validation.Infrastructure.Repositories;
 using Validation.Domain.Validation;
 
@@ -9,20 +10,22 @@ public class UnitOfWork
     private readonly DbContext _context;
     private readonly IValidationPlanProvider _planProvider;
     private readonly SummarisationValidator _validator;
+    private readonly IPublishEndpoint _bus;
     private readonly Dictionary<Type, object> _repos = new();
 
-    public UnitOfWork(DbContext context, IValidationPlanProvider planProvider, SummarisationValidator validator)
+    public UnitOfWork(DbContext context, IValidationPlanProvider planProvider, SummarisationValidator validator, IPublishEndpoint bus)
     {
         _context = context;
         _planProvider = planProvider;
         _validator = validator;
+        _bus = bus;
     }
 
     public IGenericRepository<T> Repository<T>() where T : class
     {
         if (!_repos.TryGetValue(typeof(T), out var repo))
         {
-            repo = new EfGenericRepository<T>(_context, _planProvider, _validator);
+            repo = new EfGenericRepository<T>(_context, _planProvider, _validator, _bus);
             _repos[typeof(T)] = repo;
         }
         return (IGenericRepository<T>)repo;
