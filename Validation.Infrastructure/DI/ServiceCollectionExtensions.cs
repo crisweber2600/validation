@@ -45,10 +45,10 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
-            // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
+            // Register the enhanced consumers using typed definitions
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>));
+
             configureBus?.Invoke(x);
         });
 
@@ -171,6 +171,42 @@ public static class ServiceCollectionExtensions
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
         });
+
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+
+        return services;
+    }
+
+    public static IServiceCollection AddSetupValidation<T>(
+        this IServiceCollection services,
+        Action<Setup.SetupValidationBuilder> configureDatabase,
+        Func<T, decimal> metricSelector,
+        ThresholdType thresholdType,
+        decimal thresholdValue)
+    {
+        var builder = Setup.SetupValidationExtensions.AddSetupValidation(services);
+        configureDatabase(builder);
+        builder.Build();
+
+        services.AddSingleton<IValidationPlanProvider>(_ =>
+        {
+            var provider = new InMemoryValidationPlanProvider();
+            provider.AddPlan<T>(new ValidationPlan(o => metricSelector((T)o), thresholdType, thresholdValue));
+            return provider;
+        });
+
+        services.AddScoped<SummarisationValidator>();
+
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveValidationConsumer<T>>();
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+
+        services.AddScoped<SaveValidationConsumer<T>>();
+        services.AddScoped<SaveCommitConsumer<T>>();
 
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
