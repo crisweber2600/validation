@@ -41,10 +41,10 @@ public class EfCoreSaveAuditRepository : ISaveAuditRepository
         await _context.SaveChangesAsync(ct);
     }
 
-    public async Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<SaveAudit?> GetLastAsync(string entityKey, CancellationToken ct = default)
     {
         return await _set
-            .Where(a => a.EntityId == entityId)
+            .Where(a => a.EntityId == entityKey)
             .OrderByDescending(a => a.Timestamp)
             .FirstOrDefaultAsync(ct);
     }
