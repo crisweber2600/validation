@@ -1,39 +1,97 @@
 using MassTransit;
 using Validation.Domain.Events;
 using Validation.Domain.Validation;
+using Validation.Domain;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.Messaging;
 
-public class SaveValidationConsumer<T> : IConsumer<SaveRequested>
+public class SaveValidationConsumer<T> : IConsumer<SaveRequested<T>> where T : class
 {
-    private readonly IValidationPlanProvider _planProvider;
-    private readonly ISaveAuditRepository _repository;
-    private readonly SummarisationValidator _validator;
+    private readonly IValidationPlanProvider  _planProvider;
+    private readonly ISaveAuditRepository     _auditRepo;
+    private readonly IManualValidatorService  _manual;
+    private readonly IEntityIdProvider        _idProvider;
+    private readonly IApplicationNameProvider _appName;
 
-    public SaveValidationConsumer(IValidationPlanProvider planProvider, ISaveAuditRepository repository, SummarisationValidator validator)
+    public SaveValidationConsumer(
+        IValidationPlanProvider planProvider,
+        ISaveAuditRepository auditRepo,
+        IManualValidatorService manual,
+        IEntityIdProvider idProvider,
+        IApplicationNameProvider appName)
     {
         _planProvider = planProvider;
-        _repository = repository;
-        _validator = validator;
+        _auditRepo    = auditRepo;
+        _manual       = manual;
+        _idProvider   = idProvider;
+        _appName      = appName;
     }
 
-    public async Task Consume(ConsumeContext<SaveRequested> context)
+    public async Task Consume(ConsumeContext<SaveRequested<T>> ctx)
     {
-        var last = await _repository.GetLastAsync(context.Message.Id, context.CancellationToken);
-        var metric = new Random().Next(0, 100);
-        var rules = _planProvider.GetRules<T>();
-        var isValid = _validator.Validate(last?.Metric ?? 0m, metric, rules);
+        var entity = ctx.Message.Entity;
+        var plan   = _planProvider.GetPlanFor<T>();
 
+        // Manual rules
+        if (!_manual.Validate(entity!))
+        {
+            await ctx.Publish(new ValidationOperationFailed(
+                _idProvider.GetId(entity),
+                typeof(T).Name,
+                "Save",
+                "Manual rule failed"));
+            return;
+        }
+
+        // Sequence validation
+        var seqOk = await SequenceValidator.ValidateAsync(
+            entity,
+            plan.Selector,
+            _auditRepo,
+            _idProvider,
+            plan.ThresholdValue ?? 0m,
+            plan.ThresholdType ?? ThresholdType.RawDifference,
+            ctx.CancellationToken);
+
+        if (!seqOk)
+        {
+            await ctx.Publish(new ValidationOperationFailed(
+                _idProvider.GetId(entity),
+                typeof(T).Name,
+                "Save",
+                "Sequence validation failed"));
+            return;
+        }
+
+        // Summarisation / threshold validation
+        var last     = await _auditRepo.GetLastAsync(_idProvider.GetId(entity), ctx.CancellationToken);
+        var previous = last?.Metric ?? 0m;
+        var metric   = plan.Selector(entity);
+
+        var summariser = new SummarisationValidator();
+        if (!summariser.Validate(previous, metric, plan))
+        {
+            await ctx.Publish(new ValidationOperationFailed(
+                _idProvider.GetId(entity),
+                typeof(T).Name,
+                "Save",
+                "Threshold validation failed"));
+            return;
+        }
+
+        // Record audit
         var audit = new SaveAudit
         {
-            Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
-            IsValid = isValid,
-            Metric = metric
+            EntityId        = _idProvider.GetId(entity),
+            ApplicationName = _appName.ApplicationName,
+            BatchSize       = 1,
+            IsValid         = true,
+            Metric          = metric
         };
+        await _auditRepo.AddAsync(audit, ctx.CancellationToken);
 
-        await _repository.AddAsync(audit, context.CancellationToken);
-        await context.Publish(new SaveValidated<T>(context.Message.Id, audit.Id));
+        await ctx.Publish(new SaveValidated<T>(_idProvider.GetId(entity), audit.Id));
     }
 }

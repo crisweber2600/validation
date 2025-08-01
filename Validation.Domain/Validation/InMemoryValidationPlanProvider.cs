@@ -18,6 +18,8 @@ public class InMemoryValidationPlanProvider : IValidationPlanProvider
         return plan ?? new ValidationPlan(Array.Empty<IValidationRule>());
     }
 
+    public ValidationPlan GetPlanFor<T>() => GetPlan(typeof(T));
+
     public void AddPlan<T>(ValidationPlan plan)
     {
         _plans[typeof(T)] = plan;

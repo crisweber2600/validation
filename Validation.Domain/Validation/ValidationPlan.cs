@@ -4,6 +4,7 @@ public class ValidationPlan
 {
     public IEnumerable<IValidationRule> Rules { get; }
     public Func<object, decimal>? MetricSelector { get; }
+    public Func<object, decimal>? Selector => MetricSelector;
     public ThresholdType? ThresholdType { get; }
     public decimal? ThresholdValue { get; }
 

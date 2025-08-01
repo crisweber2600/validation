@@ -13,6 +13,7 @@ using Validation.Domain.Repositories;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using Validation.Domain;
 using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
@@ -31,6 +32,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
+        services.AddSingleton<IEntityIdProvider, DefaultEntityIdProvider>();
+        services.AddSingleton<IApplicationNameProvider, DefaultApplicationNameProvider>();
 
         // Add unified event hub
         services.AddSingleton<IValidationEventHub, ValidationEventHub>();
@@ -62,7 +65,15 @@ public static class ServiceCollectionExtensions
             // Register the enhanced consumers without generic definition types to avoid MassTransit issues
             x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>();
             x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>();
-            
+
+            foreach (var type in typeof(Validation.Domain.Entities.Item).Assembly
+                         .GetTypes()
+                         .Where(t => t.Namespace == "Validation.Domain.Entities" && t.IsClass && !t.IsAbstract))
+            {
+                x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+            }
+
             configureBus?.Invoke(x);
         });
 
@@ -162,6 +173,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+        services.AddSingleton<IEntityIdProvider, DefaultEntityIdProvider>();
+        services.AddSingleton<IApplicationNameProvider, DefaultApplicationNameProvider>();
 
         // Register flow configs for ValidationFlowOrchestrator
         services.AddSingleton<IEnumerable<ValidationFlowConfig>>(configs);
