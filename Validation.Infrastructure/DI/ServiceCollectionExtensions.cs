@@ -46,8 +46,8 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>));
             
             configureBus?.Invoke(x);
         });
@@ -104,6 +104,28 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddValidatorService(this IServiceCollection services)
     {
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    public static IServiceCollection AddSaveCommit<T>(this IServiceCollection services)
+    {
+        services.AddScoped<SaveCommitConsumer<T>>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        return services;
+    }
+
+    public static IServiceCollection AddDeleteCommit<T>(this IServiceCollection services)
+    {
+        services.AddScoped<DeleteCommitConsumer<T>>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<DeleteCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
         return services;
     }
 
