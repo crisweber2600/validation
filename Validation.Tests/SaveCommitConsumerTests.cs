@@ -1,6 +1,6 @@
 using MassTransit;
 using MassTransit.Testing;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
@@ -31,7 +31,7 @@ public class SaveCommitConsumerTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>(Guid.NewGuid(), Guid.NewGuid()));
+            await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>("TestApp", "Item", Guid.NewGuid(), new Item(1), true));
 
             Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
         }

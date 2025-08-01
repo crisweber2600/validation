@@ -1,6 +1,7 @@
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
+using Validation.Domain.Entities;
 using Validation.Infrastructure.Messaging;
 using MassTransit;
 using Validation.Domain.Validation;
@@ -14,7 +15,7 @@ public class ValidationFlowIntegrationTests
     public async Task Save_requested_triggers_validated_event_and_audit_saved()
     {
         var services = new ServiceCollection();
-        services.AddMassTransitTestHarness(cfg => cfg.AddConsumer<SaveRequestedConsumer>());
+        services.AddMassTransitTestHarness(cfg => cfg.AddConsumer<SaveRequestedConsumer<Item>>());
         services.AddValidationFlow<AlwaysValidRule>(opts =>
         {
             opts.SetupDatabase<TestDbContext>("flowtest");
@@ -27,9 +28,8 @@ public class ValidationFlowIntegrationTests
         {
             using var scope = provider.CreateScope();
             var publish = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
-            await publish.Publish(new SaveRequested(Guid.NewGuid()));
-
-            Assert.True(await harness.Published.Any<SaveValidated>());
+            await publish.Publish(new SaveRequested<Item>("TestApp", "Item", Guid.NewGuid(), new Item(1)));
+            Assert.True(await harness.Published.Any<SaveValidated<Item>>());
             var ctx = scope.ServiceProvider.GetRequiredService<TestDbContext>();
             Assert.Equal(1, ctx.SaveAudits.Count());
         }
