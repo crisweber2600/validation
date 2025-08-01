@@ -31,4 +31,17 @@ public interface ISaveAuditRepository : IRepository<SaveAudit>
     /// Get audit records by correlation ID
     /// </summary>
     Task<IEnumerable<SaveAudit>> GetByCorrelationIdAsync(string correlationId, CancellationToken ct = default);
+    
+    /// <summary>
+    /// Get the last audit record for a specific entity property
+    /// </summary>
+    Task<SaveAudit?> GetLastAuditAsync(string entityId, string propertyName, CancellationToken ct = default);
+    
+    /// <summary>
+    /// Add or update an audit record for a specific entity property
+    /// </summary>
+    Task AddOrUpdateAuditAsync(string entityId, string entityType, string propertyName,
+                              decimal propertyValue, bool isValid,
+                              string? applicationName = null, string? operationType = null,
+                              string? correlationId = null, CancellationToken ct = default);
 }

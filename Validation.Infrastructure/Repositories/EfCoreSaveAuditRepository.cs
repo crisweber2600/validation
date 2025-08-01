@@ -87,4 +87,54 @@ public class EfCoreSaveAuditRepository : ISaveAuditRepository
             .OrderByDescending(a => a.Timestamp)
             .ToListAsync(ct);
     }
+
+    public async Task<SaveAudit?> GetLastAuditAsync(string entityId, string propertyName, CancellationToken ct = default)
+    {
+        return await _set
+            .Where(a => a.EntityId == entityId && a.PropertyName == propertyName)
+            .OrderByDescending(a => a.Timestamp)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task AddOrUpdateAuditAsync(string entityId, string entityType, string propertyName,
+                                          decimal propertyValue, bool isValid,
+                                          string? applicationName = null, string? operationType = null,
+                                          string? correlationId = null, CancellationToken ct = default)
+    {
+        var existingAudit = await GetLastAuditAsync(entityId, propertyName, ct);
+        
+        if (existingAudit != null)
+        {
+            // Update existing audit
+            existingAudit.PropertyValue = propertyValue;
+            existingAudit.IsValid = isValid;
+            existingAudit.Timestamp = DateTime.UtcNow;
+            existingAudit.ApplicationName = applicationName;
+            existingAudit.OperationType = operationType;
+            existingAudit.CorrelationId = correlationId;
+            
+            _set.Update(existingAudit);
+        }
+        else
+        {
+            // Insert new audit
+            var newAudit = new SaveAudit
+            {
+                Id = Guid.NewGuid().ToString(),
+                EntityId = entityId,
+                EntityType = entityType,
+                PropertyName = propertyName,
+                PropertyValue = propertyValue,
+                IsValid = isValid,
+                ApplicationName = applicationName,
+                OperationType = operationType,
+                CorrelationId = correlationId,
+                Timestamp = DateTime.UtcNow
+            };
+            
+            await _set.AddAsync(newAudit, ct);
+        }
+        
+        await _context.SaveChangesAsync(ct);
+    }
 }

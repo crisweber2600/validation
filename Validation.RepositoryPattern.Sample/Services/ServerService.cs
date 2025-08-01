@@ -1,3 +1,5 @@
+using Validation.Domain.Providers;
+using Validation.Infrastructure.Repositories;
 using Validation.RepositoryPattern.Sample.Models;
 using Validation.RepositoryPattern.Sample.Repositories;
 
@@ -33,11 +35,18 @@ public interface IServerService
 public class ServerService : IServerService
 {
     private readonly IServerRepository _serverRepository;
+    private readonly ISaveAuditRepository _auditRepository;
+    private readonly IApplicationNameProvider _applicationNameProvider;
     private bool _firstCall = true;
+    private const decimal MemoryThreshold = 5.0m; // 5GB threshold for validation
 
-    public ServerService(IServerRepository serverRepository)
+    public ServerService(IServerRepository serverRepository, 
+                        ISaveAuditRepository auditRepository,
+                        IApplicationNameProvider applicationNameProvider)
     {
         _serverRepository = serverRepository ?? throw new ArgumentNullException(nameof(serverRepository));
+        _auditRepository = auditRepository ?? throw new ArgumentNullException(nameof(auditRepository));
+        _applicationNameProvider = applicationNameProvider ?? throw new ArgumentNullException(nameof(applicationNameProvider));
     }
 
     public async Task<Server?> GetServerAsync(Guid id, CancellationToken cancellationToken = default)
@@ -66,9 +75,33 @@ public class ServerService : IServerService
             throw new InvalidOperationException($"A server with name '{server.Name}' already exists.");
         }
         
-        // Repository will handle validation
+        // Get last audited memory value for this server
+        var lastAudit = await _auditRepository.GetLastAuditAsync(server.Name, "Memory", cancellationToken);
+        var previousMemory = lastAudit?.PropertyValue ?? 0m;
+        
+        // Validate memory change (for new servers, any positive value is valid)
+        bool isValid = server.Memory > 0 && (lastAudit == null || Math.Abs(server.Memory - previousMemory) <= MemoryThreshold);
+        
+        // Repository will handle standard validation
         var addedServer = await _serverRepository.AddAsync(server, cancellationToken);
         await _serverRepository.SaveChangesAsync(cancellationToken);
+        
+        // Record the memory audit
+        await _auditRepository.AddOrUpdateAuditAsync(
+            server.Name,
+            nameof(Server),
+            "Memory",
+            server.Memory,
+            isValid,
+            _applicationNameProvider.GetApplicationName(),
+            "Create",
+            null,
+            cancellationToken);
+        
+        if (!isValid)
+        {
+            Console.WriteLine($"   ⚠ Server {server.Name}: Memory validation failed - change from {previousMemory}GB to {server.Memory}GB exceeds threshold");
+        }
         
         return addedServer;
     }
@@ -90,9 +123,33 @@ public class ServerService : IServerService
             throw new InvalidOperationException($"A server with name '{server.Name}' already exists.");
         }
         
-        // Repository will handle validation
+        // Get last audited memory value for this server
+        var lastAudit = await _auditRepository.GetLastAuditAsync(server.Name, "Memory", cancellationToken);
+        var previousMemory = lastAudit?.PropertyValue ?? existingServer.Memory;
+        
+        // Validate memory change
+        bool isValid = server.Memory > 0 && Math.Abs(server.Memory - previousMemory) <= MemoryThreshold;
+        
+        // Repository will handle standard validation
         var updatedServer = await _serverRepository.UpdateAsync(server, cancellationToken);
         await _serverRepository.SaveChangesAsync(cancellationToken);
+        
+        // Record the memory audit
+        await _auditRepository.AddOrUpdateAuditAsync(
+            server.Name,
+            nameof(Server),
+            "Memory",
+            server.Memory,
+            isValid,
+            _applicationNameProvider.GetApplicationName(),
+            "Update",
+            null,
+            cancellationToken);
+        
+        if (!isValid)
+        {
+            Console.WriteLine($"   ⚠ Server {server.Name}: Memory validation failed - change from {previousMemory}GB to {server.Memory}GB exceeds threshold (change: {Math.Abs(server.Memory - previousMemory)}GB)");
+        }
         
         return updatedServer;
     }
@@ -146,7 +203,7 @@ public class ServerService : IServerService
     public async Task DemonstrateValidationScenarioAsync(CancellationToken cancellationToken = default)
     {
         Console.WriteLine("\n--- Server Validation Scenario Demonstration ---");
-        Console.WriteLine("Scenario: Validate servers based on memory threshold compared to stored values");
+        Console.WriteLine("Scenario: Property-aware auditing with memory threshold validation");
         
         // First call - store initial values
         Console.WriteLine("\n1. First call to getServersMemory() - storing initial servers:");
@@ -176,7 +233,7 @@ public class ServerService : IServerService
             }
         }
         
-        Console.WriteLine("\n2. Second call to getServersMemory() - validating against stored values:");
+        Console.WriteLine("\n2. Second call to getServersMemory() - validating against audited values:");
         var secondCallServers = await GetServersMemoryAsync(cancellationToken);
         
         foreach (var server in secondCallServers)
@@ -189,24 +246,26 @@ public class ServerService : IServerService
                 {
                     // New server (like D) - should be allowed
                     await CreateServerAsync(server, cancellationToken);
-                    Console.WriteLine($"   ✓ Added new server {server.Name} with {server.Memory}GB memory");
+                    Console.WriteLine($"   ✓ Added new server {server.Name} with {server.Memory}GB memory (valid by default)");
                 }
                 else
                 {
-                    // Existing server - validate memory change
-                    var memoryDifference = Math.Abs(server.Memory - existingServer.Memory);
-                    var thresholdExceeded = memoryDifference > 5.0m; // 5GB threshold
+                    // Existing server - validate memory change using property-aware auditing
+                    var lastAudit = await _auditRepository.GetLastAuditAsync(server.Name, "Memory", cancellationToken);
+                    var previousMemory = lastAudit?.PropertyValue ?? existingServer.Memory;
+                    var memoryDifference = Math.Abs(server.Memory - previousMemory);
+                    var withinThreshold = memoryDifference <= MemoryThreshold;
                     
-                    if (thresholdExceeded)
+                    existingServer.UpdateMemory(server.Memory);
+                    await UpdateServerAsync(existingServer, cancellationToken);
+                    
+                    if (withinThreshold)
                     {
-                        Console.WriteLine($"   ⚠ Server {server.Name}: Memory change from {existingServer.Memory}GB to {server.Memory}GB exceeds threshold (change: {memoryDifference}GB)");
-                        // Validation should fail for this server
+                        Console.WriteLine($"   ✓ Server {server.Name}: Memory updated from {previousMemory}GB to {server.Memory}GB (within threshold, change: {memoryDifference}GB)");
                     }
                     else
                     {
-                        existingServer.UpdateMemory(server.Memory);
-                        await UpdateServerAsync(existingServer, cancellationToken);
-                        Console.WriteLine($"   ✓ Server {server.Name}: Memory updated from {existingServer.Memory}GB to {server.Memory}GB (within threshold, change: {memoryDifference}GB)");
+                        Console.WriteLine($"   ⚠ Server {server.Name}: Memory change from {previousMemory}GB to {server.Memory}GB exceeds threshold (change: {memoryDifference}GB) - marked as invalid in audit");
                     }
                 }
             }
@@ -216,7 +275,20 @@ public class ServerService : IServerService
             }
         }
         
-        Console.WriteLine("\nValidation scenario completed.");
+        // Display audit summary
+        Console.WriteLine("\n3. Property-aware audit summary:");
+        var allServers = await GetAllServersAsync(cancellationToken);
+        foreach (var server in allServers)
+        {
+            var audit = await _auditRepository.GetLastAuditAsync(server.Name, "Memory", cancellationToken);
+            if (audit != null)
+            {
+                var status = audit.IsValid ? "✓ Valid" : "✗ Invalid";
+                Console.WriteLine($"   Server {server.Name}: Memory={audit.PropertyValue}GB, Status={status}, Operation={audit.OperationType}");
+            }
+        }
+        
+        Console.WriteLine("\nProperty-aware validation scenario completed.");
     }
 
     public async Task<Server> UpdateServerMemoryAsync(Guid id, decimal newMemory, CancellationToken cancellationToken = default)

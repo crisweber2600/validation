@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Validation.Infrastructure;
 using Validation.RepositoryPattern.Sample.Models;
 
 namespace Validation.RepositoryPattern.Sample.Data;
@@ -16,6 +17,7 @@ public class SampleDbContext : DbContext
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Server> Servers => Set<Server>();
+    public DbSet<SaveAudit> SaveAudits => Set<SaveAudit>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +53,22 @@ public class SampleDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Memory).HasPrecision(18, 2);
             entity.HasIndex(e => e.Name).IsUnique();
+        });
+        
+        // SaveAudit configuration
+        modelBuilder.Entity<SaveAudit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EntityId).IsRequired();
+            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.PropertyName).HasMaxLength(200);
+            entity.Property(e => e.PropertyValue).HasPrecision(18, 2);
+            entity.Property(e => e.ApplicationName).HasMaxLength(200);
+            entity.Property(e => e.OperationType).HasMaxLength(100);
+            entity.Property(e => e.TriggeredBy).HasMaxLength(200);
+            entity.Property(e => e.CorrelationId).HasMaxLength(100);
+            entity.HasIndex(e => new { e.EntityId, e.PropertyName });
+            entity.HasIndex(e => e.Timestamp);
         });
     }
 }

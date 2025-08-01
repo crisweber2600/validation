@@ -87,6 +87,53 @@ public class SavePipelineTests
         
         public Task<IEnumerable<SaveAudit>> GetByCorrelationIdAsync(string correlationId, CancellationToken ct = default) 
             => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+
+        public Task<SaveAudit?> GetLastAuditAsync(string entityId, string propertyName, CancellationToken ct = default)
+        {
+            var audit = Audits.Where(a => a.EntityId == entityId && a.PropertyName == propertyName)
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefault();
+            return Task.FromResult<SaveAudit?>(audit);
+        }
+
+        public Task AddOrUpdateAuditAsync(string entityId, string entityType, string propertyName,
+                                        decimal propertyValue, bool isValid,
+                                        string? applicationName = null, string? operationType = null,
+                                        string? correlationId = null, CancellationToken ct = default)
+        {
+            var existingAudit = Audits.Where(a => a.EntityId == entityId && a.PropertyName == propertyName)
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefault();
+
+            if (existingAudit != null)
+            {
+                existingAudit.PropertyValue = propertyValue;
+                existingAudit.IsValid = isValid;
+                existingAudit.Timestamp = DateTime.UtcNow;
+                existingAudit.ApplicationName = applicationName;
+                existingAudit.OperationType = operationType;
+                existingAudit.CorrelationId = correlationId;
+            }
+            else
+            {
+                var newAudit = new SaveAudit
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    EntityId = entityId,
+                    EntityType = entityType,
+                    PropertyName = propertyName,
+                    PropertyValue = propertyValue,
+                    IsValid = isValid,
+                    ApplicationName = applicationName,
+                    OperationType = operationType,
+                    CorrelationId = correlationId,
+                    Timestamp = DateTime.UtcNow
+                };
+                Audits.Add(newAudit);
+            }
+
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

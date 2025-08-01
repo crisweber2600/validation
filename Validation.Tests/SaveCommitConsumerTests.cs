@@ -22,6 +22,8 @@ public class SaveCommitConsumerTests
         public Task<IEnumerable<SaveAudit>> GetByApplicationAsync(string applicationName, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
         public Task<IEnumerable<SaveAudit>> GetByTimeRangeAsync(DateTime from, DateTime to, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
         public Task<IEnumerable<SaveAudit>> GetByCorrelationIdAsync(string correlationId, CancellationToken ct = default) => Task.FromResult<IEnumerable<SaveAudit>>(Enumerable.Empty<SaveAudit>());
+        public Task<SaveAudit?> GetLastAuditAsync(string entityId, string propertyName, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);
+        public Task AddOrUpdateAuditAsync(string entityId, string entityType, string propertyName, decimal propertyValue, bool isValid, string? applicationName = null, string? operationType = null, string? correlationId = null, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     [Fact]

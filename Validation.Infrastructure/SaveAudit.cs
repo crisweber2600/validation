@@ -71,4 +71,15 @@ public class SaveAudit
     /// </summary>
     [MaxLength(100)]
     public string? CorrelationId { get; set; }
+    
+    /// <summary>
+    /// Property name for property-specific auditing
+    /// </summary>
+    [MaxLength(200)]
+    public string PropertyName { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Property value for property-specific auditing
+    /// </summary>
+    public decimal PropertyValue { get; set; }
 }
