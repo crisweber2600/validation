@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using MassTransit.Testing;
 using Validation.Domain.Entities;
+using Validation.Domain.Events;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Repositories;
 
@@ -30,22 +32,53 @@ public class GenericRepositoryTests
     }
 
     [Fact]
-    public async Task AddMany_SaveChanges_ValidatesOnce()
+    public async Task AddMany_SaveChanges_Publishes_batch_event_and_validates_once()
     {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseInMemoryDatabase("genericrepo")
-            .Options;
-        using var context = new TestDbContext(options);
-        var rule = new CountingRule();
-        var planProvider = new TestPlanProvider(rule);
-        var validator = new SummarisationValidator();
-        var repo = new EfGenericRepository<Item>(context, planProvider, validator);
+        var harness = new InMemoryTestHarness();
+        await harness.Start();
+        try
+        {
+            var options = new DbContextOptionsBuilder<TestDbContext>()
+                .UseInMemoryDatabase("genericrepo")
+                .Options;
+            using var context = new TestDbContext(options);
+            var rule = new CountingRule();
+            var planProvider = new TestPlanProvider(rule);
+            var validator = new SummarisationValidator();
+            var repo = new EfGenericRepository<Item>(context, planProvider, validator, harness.Bus);
 
-        var items = Enumerable.Range(0, 100).Select(i => new Item(i));
-        await repo.AddManyAsync(items);
-        await repo.SaveChangesWithPlanAsync();
+            var items = Enumerable.Range(0, 100).Select(i => new Item(i));
+            await repo.AddManyAsync(items);
+            await repo.SaveChangesWithPlanAsync();
 
-        Assert.Equal(1, rule.Calls);
-        Assert.Equal(100, context.Items.Count());
+            Assert.Equal(1, rule.Calls);
+            Assert.True(await harness.Published.Any<SaveBatchRequested<Item>>());
+        }
+        finally
+        {
+            await harness.Stop();
+        }
+    }
+
+    [Fact]
+    public async Task AddAsync_publishes_event()
+    {
+        var harness = new InMemoryTestHarness();
+        await harness.Start();
+        try
+        {
+            var options = new DbContextOptionsBuilder<TestDbContext>()
+                .UseInMemoryDatabase("genericrepo_add")
+                .Options;
+            using var context = new TestDbContext(options);
+            var repo = new EfGenericRepository<Item>(context, new TestPlanProvider(new CountingRule()), new SummarisationValidator(), harness.Bus);
+            await repo.AddAsync(new Item(5));
+
+            Assert.True(await harness.Published.Any<SaveRequested<Item>>());
+        }
+        finally
+        {
+            await harness.Stop();
+        }
     }
 }

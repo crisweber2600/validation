@@ -15,7 +15,7 @@ public class EventPublishingRepository<T> : IEntityRepository<T>
 
     public Task SaveAsync(T entity, string? app = null, CancellationToken ct = default)
     {
-        return _bus.Publish(new SaveRequested<T>(entity, app), ct);
+        return _bus.Publish(new SaveRequested<T>(Guid.NewGuid(), entity), ct);
     }
 
     public Task DeleteAsync(Guid id, string? app = null, CancellationToken ct = default)
