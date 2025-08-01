@@ -10,6 +10,8 @@ using Validation.Infrastructure.DI;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Auditing;
+using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.Setup;
 
@@ -25,6 +27,7 @@ public class SetupValidationBuilder
     private bool _auditingEnabled = true;
     private bool _reliabilityEnabled = true;
     private bool _observabilityEnabled = true;
+    private bool _useMongo;
 
     public SetupValidationBuilder(IServiceCollection services)
     {
@@ -49,6 +52,7 @@ public class SetupValidationBuilder
             }
             services.AddScoped<DbContext, TContext>();
         });
+        _useMongo = false;
         return this;
     }
 
@@ -61,8 +65,9 @@ public class SetupValidationBuilder
         {
             var client = new MongoClient(connectionString);
             var database = client.GetDatabase(databaseName);
-            services.AddSingleton(database);
+            services.AddMongoValidationInfrastructure(database);
         });
+        _useMongo = true;
         return this;
     }
 
@@ -74,6 +79,22 @@ public class SetupValidationBuilder
         var builder = new ValidationFlowBuilder<T>();
         configure?.Invoke(builder);
         _flowConfigs.Add(builder.Build());
+        return this;
+    }
+
+    public SetupValidationBuilder AddValidationPlan<T>(Expression<Func<T, decimal>> metricSelector, ThresholdType thresholdType, decimal thresholdValue)
+    {
+        if (metricSelector == null) throw new ArgumentNullException(nameof(metricSelector));
+        var compiled = metricSelector.Compile();
+        _customRegistrations.Add(services =>
+        {
+            Action<IValidationPlanProvider> action = provider =>
+            {
+                var plan = new ValidationPlan(o => compiled((T)o), thresholdType, thresholdValue);
+                provider.AddPlan<T>(plan);
+            };
+            services.AddSingleton(action);
+        });
         return this;
     }
 
@@ -199,7 +220,10 @@ public class SetupValidationBuilder
         // Register core infrastructure
         if (_metricsEnabled || _auditingEnabled || _reliabilityEnabled || _observabilityEnabled)
         {
-            _services.AddValidationInfrastructure();
+            if (!_useMongo)
+            {
+                _services.AddValidationInfrastructure();
+            }
         }
 
         // Register validation flows
@@ -214,20 +238,36 @@ public class SetupValidationBuilder
             registration(_services);
         }
 
-        // Configure post-registration actions for enhanced validator
-        var postActions = _services.Where(s => s.ServiceType == typeof(Action<IEnhancedManualValidatorService>))
-                                  .Select(s => (Action<IEnhancedManualValidatorService>)s.ImplementationInstance!)
-                                  .ToList();
+        // Configure post-registration actions for validator and plan provider
+        var validatorActions = _services.Where(s => s.ServiceType == typeof(Action<IEnhancedManualValidatorService>))
+                                        .Select(s => (Action<IEnhancedManualValidatorService>)s.ImplementationInstance!)
+                                        .ToList();
+        var planActions = _services.Where(s => s.ServiceType == typeof(Action<IValidationPlanProvider>))
+                                   .Select(s => (Action<IValidationPlanProvider>)s.ImplementationInstance!)
+                                   .ToList();
 
-        if (postActions.Any())
+        if (validatorActions.Any() || planActions.Any())
         {
             _services.AddSingleton<IHostedService>(provider =>
             {
-                var validator = provider.GetRequiredService<IEnhancedManualValidatorService>();
-                foreach (var action in postActions)
+                if (validatorActions.Any())
                 {
-                    action(validator);
+                    var validator = provider.GetRequiredService<IEnhancedManualValidatorService>();
+                    foreach (var action in validatorActions)
+                    {
+                        action(validator);
+                    }
                 }
+
+                if (planActions.Any())
+                {
+                    var planProvider = provider.GetRequiredService<IValidationPlanProvider>();
+                    foreach (var action in planActions)
+                    {
+                        action(planProvider);
+                    }
+                }
+
                 return new ValidationSetupHostedService();
             });
         }
@@ -426,5 +466,35 @@ public static class SetupValidationExtensions
         var builder = services.AddSetupValidation();
         configure?.Invoke(builder);
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Add validation system for a specific entity with metric selector
+    /// </summary>
+    public static IServiceCollection AddSetupValidation<T>(this IServiceCollection services,
+        Action<SetupValidationBuilder> configure,
+        Expression<Func<T, decimal>> metricSelector) where T : class
+    {
+        var builder = services.AddSetupValidation();
+        configure(builder);
+        builder.AddValidationPlan(metricSelector, ThresholdType.RawDifference, 0);
+        var result = builder.Build();
+
+        if (!result.Any(d => d.ServiceType == typeof(SummarisationValidator)))
+        {
+            result.AddScoped<SummarisationValidator>();
+        }
+
+        // Register appropriate repository based on configured database
+        if (result.Any(d => d.ServiceType == typeof(IMongoDatabase)))
+        {
+            result.AddScoped<IGenericRepository<T>, MongoGenericRepository<T>>();
+        }
+        else
+        {
+            result.AddScoped<IGenericRepository<T>, EfGenericRepository<T>>();
+        }
+
+        return result;
     }
 }

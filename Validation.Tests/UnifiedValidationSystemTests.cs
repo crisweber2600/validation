@@ -9,6 +9,7 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Setup;
 using Validation.Infrastructure.DI;
 using Validation.Infrastructure;
+using Validation.Infrastructure.Repositories;
 using Xunit;
 
 namespace Validation.Tests;
@@ -165,6 +166,38 @@ public class UnifiedValidationSystemTests
         Assert.IsAssignableFrom<Validation.Domain.Events.IAuditableEvent>(saveEvent);
         Assert.IsAssignableFrom<Validation.Domain.Events.IRetryableEvent>(failureEvent);
         Assert.Equal(2, failureEvent.AttemptNumber);
+    }
+
+    [Fact]
+    public void AddSetupValidation_EfCore_RegistersRepositoryAndPlan()
+    {
+        var services = new ServiceCollection();
+
+        services.AddSetupValidation<Item>(b => b.UseEntityFramework<TestDbContext>(), i => i.Metric);
+
+        var provider = services.BuildServiceProvider();
+        foreach (var svc in provider.GetServices<IHostedService>())
+        {
+            svc.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+        Assert.IsType<EfGenericRepository<Item>>(provider.GetRequiredService<IGenericRepository<Item>>());
+        var plan = provider.GetRequiredService<IValidationPlanProvider>().GetPlan(typeof(Item));
+        Assert.NotNull(plan.MetricSelector);
+    }
+
+    [Fact]
+    public void AddSetupValidation_Mongo_RegistersMongoRepository()
+    {
+        var services = new ServiceCollection();
+
+        services.AddSetupValidation<Item>(b => b.UseMongoDB("mongodb://localhost:27017", "tests"), i => i.Metric);
+
+        var provider = services.BuildServiceProvider();
+        foreach (var svc in provider.GetServices<IHostedService>())
+        {
+            svc.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+        Assert.IsType<MongoGenericRepository<Item>>(provider.GetRequiredService<IGenericRepository<Item>>());
     }
 }
 
