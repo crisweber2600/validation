@@ -52,32 +52,28 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
+                var retryable = ex is not ArgumentException and not ArgumentNullException;
+                var canRetry = retryable && attempts < _options.MaxRetryAttempts;
+                if (canRetry)
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
-
-                    _logger.LogWarning(ex, 
+                    _logger.LogWarning(ex,
                         "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
                         attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
-
-                    if (attempts < _options.MaxRetryAttempts)
-                    {
-                        await Task.Delay(_options.RetryDelayMs, cancellationToken);
-                        continue;
-                    }
-                    else
-                    {
-                        // Retryable exception but retries exhausted - this will be wrapped below
-                        break;
-                    }
+                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
+                    continue;
                 }
-                else
+
+                Interlocked.Increment(ref _consecutiveFailures);
+                _lastFailureTime = DateTime.UtcNow;
+
+                if (!retryable)
                 {
-                    // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
                     throw;
                 }
+
+                // retryable but retries exhausted
+                break;
             }
         }
 
