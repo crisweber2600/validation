@@ -15,6 +15,11 @@ namespace Validation.Infrastructure.DI;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Adds core validation services and configures MassTransit. Delete request
+    /// processing includes message retry, an in-memory outbox and a dedicated
+    /// dead-letter queue.
+    /// </summary>
     public static IServiceCollection AddValidationInfrastructure(
         this IServiceCollection services,
         Action<IBusRegistrationConfigurator>? configureBus = null)
@@ -26,6 +31,19 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             configureBus?.Invoke(x);
+
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.ReceiveEndpoint("delete_requests_queue", e =>
+                {
+                    e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(1)));
+                    e.UseInMemoryOutbox();
+                });
+
+                cfg.ReceiveEndpoint("delete_requests_queue_error", _ => { });
+
+                cfg.ConfigureEndpoints(context);
+            });
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());

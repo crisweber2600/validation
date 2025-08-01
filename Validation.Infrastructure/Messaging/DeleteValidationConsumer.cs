@@ -5,6 +5,9 @@ using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Messaging;
 
+/// <summary>
+/// Validates delete requests and publishes <see cref="DeleteValidated{T}"/> on success.
+/// </summary>
 public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
 {
     private readonly IValidationPlanProvider _planProvider;
@@ -16,11 +19,11 @@ public class DeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         _validator = validator;
     }
 
-    public Task Consume(ConsumeContext<DeleteRequested> context)
+    public async Task Consume(ConsumeContext<DeleteRequested> context)
     {
         var rules = _planProvider.GetRules<T>();
         // execute manual rules with zero metrics since delete; actual logic omitted
         _validator.Validate(0, 0, rules);
-        return Task.CompletedTask;
+        await context.Publish(new DeleteValidated<T>(context.Message.Id));
     }
 }
