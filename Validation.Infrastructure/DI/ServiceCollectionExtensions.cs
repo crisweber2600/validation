@@ -3,6 +3,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -10,6 +11,10 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using Validation.Infrastructure.Reliability;
+using Validation.Infrastructure.Metrics;
+using Validation.Infrastructure.Auditing;
+using Validation.Infrastructure.Observability;
 
 namespace Validation.Infrastructure.DI;
 
@@ -22,15 +27,38 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
+
+        // Add reliability services
+        services.AddSingleton<DeleteReliabilityOptions>();
+        services.AddScoped<DeletePipelineReliabilityPolicy>();
+        services.AddScoped<ReliableMessagePublisher>();
+
+        // Add metrics services
+        services.AddSingleton<IMetricsCollector, MetricsCollector>();
+        services.AddSingleton<MetricsOrchestratorOptions>();
+        services.AddHostedService<MetricsOrchestrator>();
+
+        // Add auditing services  
+        services.AddScoped<NannyRecordAuditService>();
+        services.AddSingleton<NannyRecordAuditOptions>();
 
         services.AddMassTransit(x =>
         {
+            // Register the enhanced consumers
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
+            
             configureBus?.Invoke(x);
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        services.AddOpenTelemetry().WithTracing(builder => 
+        {
+            builder.AddAspNetCoreInstrumentation();
+            builder.AddSource(ValidationObservability.ActivitySource.Name);
+        });
 
         return services;
     }
