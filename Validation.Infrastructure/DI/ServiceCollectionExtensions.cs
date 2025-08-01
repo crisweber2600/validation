@@ -1,4 +1,6 @@
 using MassTransit;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,6 +120,42 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
+        return services;
+    }
+
+    public record ValidationFlowConfig
+    {
+        public string Type { get; init; } = string.Empty;
+        public bool SaveValidation { get; init; }
+        public bool SaveCommit { get; init; }
+        public string MetricProperty { get; init; } = string.Empty;
+        public ThresholdType ThresholdType { get; init; }
+        public decimal ThresholdValue { get; init; }
+    }
+
+    public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
+    {
+        services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddScoped<SummarisationValidator>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            foreach (var cfg in configs)
+            {
+                var entityType = Type.GetType(cfg.Type) ?? throw new ArgumentException($"Type {cfg.Type} not found");
+                if (cfg.SaveValidation)
+                {
+                    x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(entityType));
+                }
+                if (cfg.SaveCommit)
+                {
+                    x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(entityType));
+                }
+            }
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
         return services;
     }
 }
