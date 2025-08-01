@@ -18,6 +18,7 @@ using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
 using Validation.Infrastructure.Pipeline;
+using Validation.Domain;
 
 namespace Validation.Infrastructure.DI;
 
@@ -30,6 +31,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+
+        services.AddSingleton<IEntityIdProvider>(new ReflectionBasedEntityIdProvider());
+        services.AddSingleton<IApplicationNameProvider>(new StaticApplicationNameProvider("ValidationService"));
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
 
         // Add unified event hub
@@ -52,6 +56,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMetricsCollector, MetricsCollector>();
         services.AddSingleton<MetricsOrchestratorOptions>();
         services.AddHostedService<MetricsOrchestrator>();
+
+        services.AddSingleton<IEntityIdProvider>(new ReflectionBasedEntityIdProvider());
+        services.AddSingleton<IApplicationNameProvider>(new StaticApplicationNameProvider("ValidationService"));
 
         // Add auditing services  
         services.AddScoped<NannyRecordAuditService>();
