@@ -132,14 +132,14 @@ public class NannyRecordTests
     {
         // Arrange
         var record = new NannyRecord("Mary Poppins");
-        
+
         // Act
         record.UpdateName("Julie Andrews");
         var firstModified = record.LastModified;
-        
+
         // Small delay to ensure timestamp difference
         System.Threading.Thread.Sleep(1);
-        
+
         record.UpdateContactInfo("julie@example.com");
         var secondModified = record.LastModified;
 

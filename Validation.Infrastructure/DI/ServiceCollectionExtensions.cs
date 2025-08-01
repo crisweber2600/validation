@@ -46,15 +46,15 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>, ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>>();
+            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>, ReliabilityConsumerDefinition<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>>();
+
             configureBus?.Invoke(x);
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => 
+        services.AddOpenTelemetry().WithTracing(builder =>
         {
             builder.AddAspNetCoreInstrumentation();
             builder.AddSource(ValidationObservability.ActivitySource.Name);
@@ -124,7 +124,7 @@ public static class ServiceCollectionExtensions
                     var conv = Expression.Convert(prop, typeof(decimal));
                     var lambda = Expression.Lambda<Func<object, decimal>>(conv, param).Compile();
                     var plan = new ValidationPlan(lambda, config.ThresholdType.Value, config.ThresholdValue.Value);
-                    
+
                     typeof(InMemoryValidationPlanProvider).GetMethod("AddPlan")!
                         .MakeGenericMethod(type)
                         .Invoke(provider, new object[] { plan });

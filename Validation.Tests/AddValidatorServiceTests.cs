@@ -20,7 +20,7 @@ public class AddValidatorServiceTests
 
         using var provider = services.BuildServiceProvider();
         var validatorService = provider.GetService<IManualValidatorService>();
-        
+
         Assert.NotNull(validatorService);
     }
 
@@ -33,7 +33,7 @@ public class AddValidatorServiceTests
 
         using var provider = services.BuildServiceProvider();
         var validatorService = provider.GetRequiredService<IManualValidatorService>();
-        
+
         Assert.NotNull(validatorService);
 
         // Test valid entity
@@ -53,16 +53,16 @@ public class AddValidatorServiceTests
     public void AddValidatorRule_can_be_called_multiple_times()
     {
         var services = new ServiceCollection();
-        
+
         // Add first rule
         services.AddValidatorRule<TestEntity>(entity => entity.Id > 0);
-        
+
         // Add second rule
         services.AddValidatorRule<TestEntity>(entity => entity.Name.Length > 2);
 
         using var provider = services.BuildServiceProvider();
         var validatorService = provider.GetRequiredService<IManualValidatorService>();
-        
+
         Assert.NotNull(validatorService);
 
         // Test entity that passes first rule but fails second

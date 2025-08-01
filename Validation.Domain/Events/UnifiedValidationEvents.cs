@@ -33,9 +33,9 @@ public interface IAuditableEvent : IValidationEvent
 /// Enhanced delete validation event with audit support
 /// </summary>
 public record DeleteValidationCompleted(
-    Guid EntityId, 
-    string EntityType, 
-    bool Validated, 
+    Guid EntityId,
+    string EntityType,
+    bool Validated,
     Guid? AuditId = null,
     string? AuditDetails = null) : IAuditableEvent
 {

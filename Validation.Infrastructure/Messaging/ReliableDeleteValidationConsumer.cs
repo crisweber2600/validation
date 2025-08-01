@@ -56,21 +56,21 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
         {
             _logger.LogError(ex, "Delete validation failed due to circuit breaker being open for entity {EntityId}",
                 context.Message.Id);
-            
+
             // Send to dead letter queue or handle graceful degradation
             await context.Publish(new DeleteValidationFailed(context.Message.Id, "Circuit breaker open", typeof(T).Name),
                 context.CancellationToken);
-            
+
             throw;
         }
         catch (DeletePipelineReliabilityException ex)
         {
             _logger.LogError(ex, "Delete validation failed after all retry attempts for entity {EntityId}",
                 context.Message.Id);
-            
+
             await context.Publish(new DeleteValidationFailed(context.Message.Id, ex.Message, typeof(T).Name),
                 context.CancellationToken);
-            
+
             throw;
         }
     }
@@ -79,7 +79,7 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
     {
         // Get the last audit record to understand the current state
         var lastAudit = await _auditRepository.GetLastAsync(context.Message.Id, cancellationToken);
-        
+
         if (lastAudit == null)
         {
             _logger.LogWarning("No audit record found for entity {EntityId}. Allowing delete.",
@@ -88,7 +88,7 @@ public class ReliableDeleteValidationConsumer<T> : IConsumer<DeleteRequested>
 
         // Get validation rules for this entity type
         var rules = _planProvider.GetRules<T>();
-        
+
         // Validate deletion (using zero metrics since the entity is being deleted)
         var isValid = _validator.Validate(lastAudit?.Metric ?? 0m, 0m, rules);
 

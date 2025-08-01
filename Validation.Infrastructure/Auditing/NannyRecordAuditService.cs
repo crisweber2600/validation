@@ -73,7 +73,7 @@ public class NannyRecordAuditService
         {
             return await _auditRepository.GetAuditTrailAsync(nannyRecordId, from.Value, to.Value, cancellationToken);
         }
-        
+
         return await _auditRepository.GetAuditTrailAsync(nannyRecordId, cancellationToken);
     }
 
@@ -82,7 +82,7 @@ public class NannyRecordAuditService
         CancellationToken cancellationToken = default)
     {
         var nonCompliantRecords = await _auditRepository.GetNonCompliantRecordsAsync(from, cancellationToken);
-        
+
         return new ComplianceReport
         {
             ReportDate = DateTime.UtcNow,
@@ -103,7 +103,7 @@ public class NannyRecordAuditService
     {
         // Implement your compliance validation logic here
         // For example, check if sensitive fields were modified without proper authorization
-        
+
         return true; // Default to compliant unless specific violations are detected
     }
 }

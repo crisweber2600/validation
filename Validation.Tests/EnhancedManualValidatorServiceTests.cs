@@ -192,8 +192,8 @@ public class EnhancedManualValidatorServiceTests
     public void GetSummary_InvalidResult_ReturnsFailMessage()
     {
         // Arrange
-        var result = new ValidationResult 
-        { 
+        var result = new ValidationResult
+        {
             IsValid = false,
             FailedRules = { "Rule1", "Rule2" },
             Errors = { "Error1" }

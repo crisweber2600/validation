@@ -9,7 +9,7 @@ namespace Validation.Infrastructure.Observability;
 public static class ValidationObservability
 {
     public static readonly ActivitySource ActivitySource = new("Validation.Infrastructure", "1.0.0");
-    
+
     public static class EventIds
     {
         public static readonly EventId ValidationStarted = new(1001, "ValidationStarted");

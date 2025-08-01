@@ -64,9 +64,9 @@ public class SummarisationValidator
         return true;
     }
 
-    public bool Validate<TItem,TKey>(IEnumerable<TItem> items,
-        Func<TItem,TKey> keySelector,
-        IEnumerable<IListValidationRule<TItem,TKey>> rules)
+    public bool Validate<TItem, TKey>(IEnumerable<TItem> items,
+        Func<TItem, TKey> keySelector,
+        IEnumerable<IListValidationRule<TItem, TKey>> rules)
     {
         var groups = items.GroupBy(keySelector);
         foreach (var group in groups)

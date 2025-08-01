@@ -1,6 +1,6 @@
 namespace Validation.Domain.Validation;
 
-public class DuplicateEqualityRule<TItem,TKey> : IListValidationRule<TItem,TKey>
+public class DuplicateEqualityRule<TItem, TKey> : IListValidationRule<TItem, TKey>
 {
     public bool Validate(IGrouping<TKey, TItem> duplicates)
     {

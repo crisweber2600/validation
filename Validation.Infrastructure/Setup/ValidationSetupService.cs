@@ -194,20 +194,20 @@ public class ValidationSetupService : IValidationSetupService
         {
             var provider = _serviceProvider.GetRequiredService<IValidationPlanProvider>();
             var rules = provider.GetRules<object>();
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "ValidationPlanProvider", 
-                IsHealthy = true, 
-                Message = $"Available, {rules.Count()} rules configured" 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "ValidationPlanProvider",
+                IsHealthy = true,
+                Message = $"Available, {rules.Count()} rules configured"
             });
         }
         catch (Exception ex)
         {
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "ValidationPlanProvider", 
-                IsHealthy = false, 
-                Message = ex.Message 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "ValidationPlanProvider",
+                IsHealthy = false,
+                Message = ex.Message
             });
         }
 
@@ -220,20 +220,20 @@ public class ValidationSetupService : IValidationSetupService
         {
             var validator = _serviceProvider.GetRequiredService<IEnhancedManualValidatorService>();
             var testResult = validator.ValidateWithDetails(new object());
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "ManualValidatorService", 
-                IsHealthy = true, 
-                Message = "Service is responsive" 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "ManualValidatorService",
+                IsHealthy = true,
+                Message = "Service is responsive"
             });
         }
         catch (Exception ex)
         {
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "ManualValidatorService", 
-                IsHealthy = false, 
-                Message = ex.Message 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "ManualValidatorService",
+                IsHealthy = false,
+                Message = ex.Message
             });
         }
 
@@ -246,20 +246,20 @@ public class ValidationSetupService : IValidationSetupService
         {
             var metricsCollector = _serviceProvider.GetRequiredService<IMetricsCollector>();
             var summary = await metricsCollector.GetMetricsSummaryAsync(TimeSpan.FromMinutes(1));
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "MetricsCollector", 
-                IsHealthy = true, 
-                Message = $"Available, {summary.TotalValidations} recent validations" 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "MetricsCollector",
+                IsHealthy = true,
+                Message = $"Available, {summary.TotalValidations} recent validations"
             });
         }
         catch (Exception ex)
         {
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "MetricsCollector", 
-                IsHealthy = false, 
-                Message = ex.Message 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "MetricsCollector",
+                IsHealthy = false,
+                Message = ex.Message
             });
         }
     }
@@ -269,20 +269,20 @@ public class ValidationSetupService : IValidationSetupService
         try
         {
             var policy = _serviceProvider.GetRequiredService<DeletePipelineReliabilityPolicy>();
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "ReliabilityPolicies", 
-                IsHealthy = true, 
-                Message = "Delete pipeline reliability policy is available" 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "ReliabilityPolicies",
+                IsHealthy = true,
+                Message = "Delete pipeline reliability policy is available"
             });
         }
         catch (Exception ex)
         {
-            result.Details.Add(new HealthDetail 
-            { 
-                Name = "ReliabilityPolicies", 
-                IsHealthy = false, 
-                Message = ex.Message 
+            result.Details.Add(new HealthDetail
+            {
+                Name = "ReliabilityPolicies",
+                IsHealthy = false,
+                Message = ex.Message
             });
         }
 
@@ -298,16 +298,16 @@ public class SetupValidationResult
     public List<string> ConfigurationIssues { get; set; } = new();
     public List<string> DependencyIssues { get; set; } = new();
     public List<HealthDetail> HealthDetails { get; set; } = new();
-    
+
     public string GetSummary()
     {
         if (IsValid) return "Setup validation passed";
-        
+
         var issues = new List<string>();
         issues.AddRange(ServiceRegistrationIssues);
         issues.AddRange(ConfigurationIssues);
         issues.AddRange(DependencyIssues);
-        
+
         return $"Setup validation failed. Issues: {string.Join(", ", issues)}";
     }
 }

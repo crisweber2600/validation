@@ -150,6 +150,7 @@ public class EnhancedManualValidatorService : IEnhancedManualValidatorService
                             _logger.LogError(ex, "Error executing named rule {RuleName} for type {Type}",
                                 kvp.Key, type.Name);
                             result.IsValid = false;
+                            result.FailedRules.Add(kvp.Key);
                             result.Errors.Add($"Rule '{kvp.Key}' execution failed: {ex.Message}");
                         }
                     }
@@ -177,6 +178,7 @@ public class EnhancedManualValidatorService : IEnhancedManualValidatorService
                             _logger.LogError(ex, "Error executing anonymous rule {Index} for type {Type}",
                                 i, type.Name);
                             result.IsValid = false;
+                            result.FailedRules.Add($"Anonymous rule {i}");
                             result.Errors.Add($"Anonymous rule {i} execution failed: {ex.Message}");
                         }
                     }
@@ -258,11 +260,11 @@ public class ValidationResult
     public bool IsValid { get; set; }
     public List<string> FailedRules { get; set; } = new();
     public List<string> Errors { get; set; } = new();
-    
+
     public string GetSummary()
     {
         if (IsValid) return "Validation passed";
-        
+
         var summary = $"Validation failed. Failed rules: {string.Join(", ", FailedRules)}";
         if (Errors.Any())
         {

@@ -14,40 +14,40 @@ public class SavePipelineTests
     private class TestPlanProvider : IValidationPlanProvider
     {
         public IEnumerable<IValidationRule> GetRules<T>() => Array.Empty<IValidationRule>();
-        
+
         public ValidationPlan GetPlan(Type t) => new ValidationPlan(
-            entity => ((Item)entity).Metric, 
-            ThresholdType.RawDifference, 
+            entity => ((Item)entity).Metric,
+            ThresholdType.RawDifference,
             100m
         );
-        
+
         public void AddPlan<T>(ValidationPlan plan) { }
     }
 
     private class FailingRepository : ISaveAuditRepository
     {
         public List<SaveAudit> Audits { get; } = new();
-        
+
         public Task AddAsync(SaveAudit entity, CancellationToken ct = default)
         {
             Audits.Add(entity);
             return Task.CompletedTask;
         }
-        
+
         public Task DeleteAsync(Guid id, CancellationToken ct = default)
         {
             Audits.RemoveAll(a => a.Id == id);
             return Task.CompletedTask;
         }
-        
+
         public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default)
         {
             return Task.FromResult<SaveAudit?>(Audits.FirstOrDefault(a => a.Id == id));
         }
-        
+
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default)
             => throw new Exception("Repository failure for testing");
-        
+
         public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
         {
             var audit = Audits.Where(a => a.EntityId == entityId)

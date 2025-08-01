@@ -152,7 +152,7 @@ public class UnifiedValidationSystemTests
         // Arrange & Act
         var deleteEvent = new Validation.Domain.Events.DeleteValidationCompleted(
             Guid.NewGuid(), "Item", true, Guid.NewGuid(), "Test audit");
-        
+
         var saveEvent = new Validation.Domain.Events.SaveValidationCompleted(
             Guid.NewGuid(), "Item", true, new { Value = 100 });
 

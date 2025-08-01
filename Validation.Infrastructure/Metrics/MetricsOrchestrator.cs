@@ -137,7 +137,7 @@ public class MetricsOrchestrator : BackgroundService
     private async Task ProcessMetricsAsync(CancellationToken cancellationToken)
     {
         var summary = await _metricsCollector.GetMetricsSummaryAsync(TimeSpan.FromMinutes(5));
-        
+
         _logger.LogInformation(
             "Metrics Summary: {TotalValidations} validations, {SuccessRate:P2} success rate, {AvgDuration:F2}ms avg duration",
             summary.TotalValidations,
@@ -179,7 +179,7 @@ public class MetricsSummary
     public int TotalRetries { get; set; }
     public int CircuitBreakerOpenCount { get; set; }
     public Dictionary<string, int> EntityTypeBreakdown { get; set; } = new();
-    
+
     public double SuccessRate => TotalValidations > 0 ? (double)SuccessfulValidations / TotalValidations : 0;
 }
 

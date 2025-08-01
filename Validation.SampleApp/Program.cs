@@ -28,18 +28,18 @@ class Program
                         .WithThreshold(x => x.Metric, ThresholdType.GreaterThan, 5)
                         .WithValidationTimeout(TimeSpan.FromMinutes(1))
                         .EnableAuditing())
-                    
+
                     .AddRule<Item>("PositiveValue", item => item.Metric > 0)
                     .AddRule<Item>("ReasonableRange", item => item.Metric <= 1000)
-                    
+
                     .ConfigureMetrics(metrics => metrics
                         .WithProcessingInterval(TimeSpan.FromSeconds(30))
                         .EnableDetailedMetrics(false))
-                    
+
                     .ConfigureReliability(reliability => reliability
                         .WithMaxRetries(2)
                         .WithRetryDelay(TimeSpan.FromMilliseconds(500)))
-                    
+
                     .Build();
             })
             .ConfigureLogging(logging =>
@@ -71,26 +71,26 @@ class Program
         // Test valid item
         var validItem = new Item(100);
         var validResult = validator.ValidateWithDetails(validItem);
-        
-        logger.LogInformation("Valid item (metric={Metric}): {IsValid}", 
+
+        logger.LogInformation("Valid item (metric={Metric}): {IsValid}",
             validItem.Metric, validResult.IsValid);
-        
+
         if (!validResult.IsValid)
         {
-            logger.LogWarning("Failed rules: {FailedRules}", 
+            logger.LogWarning("Failed rules: {FailedRules}",
                 string.Join(", ", validResult.FailedRules));
         }
 
         // Test invalid item
         var invalidItem = new Item(-5);
         var invalidResult = validator.ValidateWithDetails(invalidItem);
-        
-        logger.LogInformation("Invalid item (metric={Metric}): {IsValid}", 
+
+        logger.LogInformation("Invalid item (metric={Metric}): {IsValid}",
             invalidItem.Metric, invalidResult.IsValid);
-        
+
         if (!invalidResult.IsValid)
         {
-            logger.LogWarning("Failed rules: {FailedRules}", 
+            logger.LogWarning("Failed rules: {FailedRules}",
                 string.Join(", ", invalidResult.FailedRules));
         }
 
@@ -107,7 +107,7 @@ class Program
         // Create various unified events
         var deleteEvent = new Validation.Domain.Events.DeleteValidationCompleted(
             Guid.NewGuid(), "Item", true, Guid.NewGuid(), "Delete validation successful");
-        
+
         var saveEvent = new Validation.Domain.Events.SaveValidationCompleted(
             Guid.NewGuid(), "Item", true, new { Metric = 150 }, Guid.NewGuid());
 
@@ -127,7 +127,7 @@ class Program
     }
 
     private static void ProcessValidationEvent(
-        Validation.Domain.Events.IValidationEvent validationEvent, 
+        Validation.Domain.Events.IValidationEvent validationEvent,
         ILogger logger)
     {
         logger.LogInformation("Processing {EventType} for {EntityType} {EntityId} at {Timestamp}",
@@ -137,7 +137,7 @@ class Program
             validationEvent.Timestamp);
 
         // Handle auditable events
-        if (validationEvent is Validation.Domain.Events.IAuditableEvent auditableEvent 
+        if (validationEvent is Validation.Domain.Events.IAuditableEvent auditableEvent
             && auditableEvent.AuditId.HasValue)
         {
             logger.LogInformation("  Audit ID: {AuditId}", auditableEvent.AuditId);

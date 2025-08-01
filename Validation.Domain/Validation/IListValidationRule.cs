@@ -1,6 +1,6 @@
 namespace Validation.Domain.Validation;
 
-public interface IListValidationRule<TItem,TKey>
+public interface IListValidationRule<TItem, TKey>
 {
-    bool Validate(IGrouping<TKey,TItem> duplicates);
+    bool Validate(IGrouping<TKey, TItem> duplicates);
 }
