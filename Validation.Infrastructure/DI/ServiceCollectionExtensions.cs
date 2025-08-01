@@ -4,6 +4,8 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
@@ -45,10 +47,6 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
-            // Register the enhanced consumers
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.Item>>(typeof(ReliabilityConsumerDefinition<>));
-            x.AddConsumer<ReliableDeleteValidationConsumer<Validation.Domain.Entities.NannyRecord>>(typeof(ReliabilityConsumerDefinition<>));
-            
             configureBus?.Invoke(x);
         });
 
@@ -138,6 +136,22 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
+        foreach (var config in configs)
+        {
+            if (config.ManualRules?.Count > 0)
+            {
+                var type = Type.GetType(config.Type, true)!;
+                foreach (var rule in config.ManualRules)
+                {
+                    var del = BuildRuleDelegate(type, rule);
+                    typeof(ServiceCollectionExtensions)
+                        .GetMethod(nameof(AddValidatorRule))!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object[] { services, del });
+                }
+            }
+        }
+
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
         {
@@ -168,6 +182,11 @@ public static class ServiceCollectionExtensions
                         services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
                     }
                 }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
         });
@@ -176,6 +195,30 @@ public static class ServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
 
         return services;
+    }
+
+    private static Delegate BuildRuleDelegate(Type type, string rule)
+    {
+        var match = Regex.Match(rule.Trim(), @"^(\w+)\s*(>=|<=|==|!=|>|<)\s*(.+)$");
+        if (!match.Success)
+            throw new ArgumentException($"Invalid rule format: {rule}", nameof(rule));
+
+        var param = Expression.Parameter(type, "x");
+        var member = Expression.PropertyOrField(param, match.Groups[1].Value);
+        var constant = Expression.Constant(Convert.ChangeType(match.Groups[3].Value, member.Type, CultureInfo.InvariantCulture));
+        Expression body = match.Groups[2].Value switch
+        {
+            ">" => Expression.GreaterThan(member, constant),
+            "<" => Expression.LessThan(member, constant),
+            ">=" => Expression.GreaterThanOrEqual(member, constant),
+            "<=" => Expression.LessThanOrEqual(member, constant),
+            "==" => Expression.Equal(member, constant),
+            "!=" => Expression.NotEqual(member, constant),
+            _ => throw new NotSupportedException()
+        };
+
+        var lambda = Expression.Lambda(typeof(Func<,>).MakeGenericType(type, typeof(bool)), body, param);
+        return lambda.Compile();
     }
 }
 

@@ -18,9 +18,12 @@ public class AddValidationFlowsTests
                 "Type": "Validation.Domain.Entities.Item, Validation.Domain",
                 "SaveValidation": true,
                 "SaveCommit": true,
+                "DeleteValidation": true,
+                "DeleteCommit": true,
                 "MetricProperty": "Metric",
                 "ThresholdType": 1,
-                "ThresholdValue": 0.2
+                "ThresholdValue": 0.2,
+                "ManualRules": ["Metric > 0"]
             }]
             """;
 
@@ -30,19 +33,29 @@ public class AddValidationFlowsTests
         {
             element.TryGetProperty("ThresholdType", out var thresholdTypeElement);
             element.TryGetProperty("ThresholdValue", out var thresholdValueElement);
-            
+
+            var manualRules = new List<string>();
+            if (element.TryGetProperty("ManualRules", out var rulesElement) && rulesElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var rule in rulesElement.EnumerateArray())
+                    manualRules.Add(rule.GetString()!);
+            }
+
             configs.Add(new ValidationFlowConfig
             {
                 Type = element.GetProperty("Type").GetString()!,
                 SaveValidation = element.GetProperty("SaveValidation").GetBoolean(),
                 SaveCommit = element.GetProperty("SaveCommit").GetBoolean(),
+                DeleteValidation = element.GetProperty("DeleteValidation").GetBoolean(),
+                DeleteCommit = element.GetProperty("DeleteCommit").GetBoolean(),
                 MetricProperty = element.GetProperty("MetricProperty").GetString(),
-                ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number 
-                    ? (ThresholdType?)thresholdTypeElement.GetInt32() 
+                ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number
+                    ? (ThresholdType?)thresholdTypeElement.GetInt32()
                     : null,
-                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number 
-                    ? thresholdValueElement.GetDecimal() 
-                    : null
+                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number
+                    ? thresholdValueElement.GetDecimal()
+                    : null,
+                ManualRules = manualRules
             });
         }
 
@@ -57,6 +70,13 @@ public class AddValidationFlowsTests
         // Verify that the consumers were registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.NotNull(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
+
+        // Manual rule should be applied
+        var validator = scope.ServiceProvider.GetRequiredService<IManualValidatorService>();
+        Assert.True(validator.Validate(new Item(5)));
+        Assert.False(validator.Validate(new Item(0)));
         
         // Verify that validation plan provider was configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
