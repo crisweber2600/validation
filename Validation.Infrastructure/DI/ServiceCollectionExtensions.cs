@@ -205,6 +205,20 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    public static IServiceCollection AddReflectionBasedEntityIdProvider(
+        this IServiceCollection services, params string[] priority)
+    {
+        services.AddSingleton<IEntityIdProvider>(new ReflectionBasedEntityIdProvider(priority));
+        return services;
+    }
+
+    public static IServiceCollection WithStaticApplicationName(
+        this IServiceCollection services, string name)
+    {
+        services.AddSingleton<IApplicationNameProvider>(new StaticApplicationNameProvider(name));
+        return services;
+    }
 }
 
 public static class ValidationFlowServiceCollectionExtensions
