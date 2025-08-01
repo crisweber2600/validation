@@ -105,9 +105,9 @@ public class DeletePipelineReliabilityTests
                 // Use a RuntimeException which is retryable
                 await _policy.ExecuteWithSyncOperationAsync<string>(_ => throw new InvalidOperationException("Retryable failure"));
             }
-            catch (DeletePipelineReliabilityException)
+            catch (Exception ex) when (ex is DeletePipelineReliabilityException or DeletePipelineCircuitOpenException)
             {
-                // Expected after retries are exhausted
+                // Expected after retries are exhausted or circuit opens
             }
         }
 

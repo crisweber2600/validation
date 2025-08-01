@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using MassTransit.Testing;
 using Validation.Domain.Validation;
 using Validation.Infrastructure;
+using ValidationFlow.Messages.Batch;
 
 namespace Validation.Tests;
 
@@ -27,19 +29,25 @@ public class UnitOfWorkExampleTests
         services.AddScoped<DbContext>(sp => sp.GetRequiredService<ExampleDbContext>());
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddScoped<SummarisationValidator>();
-        services.AddScoped<UnitOfWork>();
-
         var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         planProvider.AddPlan<YourEntity>(new ValidationPlan(e => ((YourEntity)e).Id, ThresholdType.RawDifference, 5));
 
-        var uow = scope.ServiceProvider.GetRequiredService<UnitOfWork>();
-        await uow.Repository<YourEntity>().AddAsync(new YourEntity { Id = 50 });
-        var count = await uow.SaveChangesWithPlanAsync<YourEntity>();
+        var harness = new InMemoryTestHarness();
+        await harness.Start();
+        try
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ExampleDbContext>();
+            var validator = scope.ServiceProvider.GetRequiredService<SummarisationValidator>();
+            var uow = new UnitOfWork(db, planProvider, validator, harness.Bus);
+            await uow.Repository<YourEntity>().AddAsync(new YourEntity { Id = 50 });
 
-        var ctx = scope.ServiceProvider.GetRequiredService<ExampleDbContext>();
-        Assert.Equal(1, ctx.Entities.Count());
-        Assert.Equal(1, count);
+            Assert.True(await harness.Published.Any<ValidationFlow.Messages.Batch.SaveRequested<YourEntity>>());
+        }
+        finally
+        {
+            await harness.Stop();
+        }
     }
 }
