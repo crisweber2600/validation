@@ -1,6 +1,7 @@
 using MassTransit;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -138,6 +139,27 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
+        foreach (var config in configs)
+        {
+            if (config.ManualRules != null && config.ManualRules.Count > 0)
+            {
+                var type = Type.GetType(config.Type, true)!;
+                foreach (var rule in config.ManualRules)
+                {
+                    var param = Expression.Parameter(type, "x");
+                    var prop = Expression.Property(param, rule.Property);
+                    var propConv = Expression.Convert(prop, typeof(decimal));
+                    var minConstant = Expression.Constant(rule.MinValue ?? 0m, typeof(decimal));
+                    var body = Expression.GreaterThanOrEqual(propConv, minConstant);
+                    var lambda = Expression.Lambda(body, param).Compile();
+                    typeof(ServiceCollectionExtensions)
+                        .GetMethod(nameof(AddValidatorRule))!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object?[] { services, lambda });
+                }
+            }
+        }
+
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
         {
@@ -153,6 +175,16 @@ public static class ServiceCollectionExtensions
                 {
                     x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteValidation)
+                {
+                    x.AddConsumer(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
                 }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));

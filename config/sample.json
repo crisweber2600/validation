@@ -1,0 +1,15 @@
+[
+  {
+    "Type": "Validation.Domain.Entities.Item, Validation.Domain",
+    "SaveValidation": true,
+    "SaveCommit": true,
+    "DeleteValidation": true,
+    "DeleteCommit": true,
+    "MetricProperty": "Metric",
+    "ThresholdType": 1,
+    "ThresholdValue": 0.2,
+    "ManualRules": [
+      { "Property": "Metric", "MinValue": 0 }
+    ]
+  }
+]

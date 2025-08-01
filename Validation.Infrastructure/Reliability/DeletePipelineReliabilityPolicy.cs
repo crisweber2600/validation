@@ -27,7 +27,7 @@ public class DeletePipelineReliabilityPolicy
         if (IsCircuitOpen())
         {
             _logger.LogWarning("Delete pipeline circuit breaker is open. Failing fast.");
-            throw new DeletePipelineCircuitOpenException("Circuit breaker is open");
+            return await Task.FromException<T>(new DeletePipelineCircuitOpenException("Circuit breaker is open"));
         }
 
         var attempts = 0;
@@ -54,7 +54,6 @@ public class DeletePipelineReliabilityPolicy
                 
                 if (ShouldRetry(ex, attempts - 1))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
 
                     _logger.LogWarning(ex, 
@@ -69,6 +68,7 @@ public class DeletePipelineReliabilityPolicy
                     else
                     {
                         // Retryable exception but retries exhausted - this will be wrapped below
+                        Interlocked.Increment(ref _consecutiveFailures);
                         break;
                     }
                 }
@@ -101,9 +101,6 @@ public class DeletePipelineReliabilityPolicy
 
     private bool ShouldRetry(Exception exception, int attempt)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;
