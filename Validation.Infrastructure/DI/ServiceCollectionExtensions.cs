@@ -1,6 +1,7 @@
 using MassTransit;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
@@ -120,4 +121,39 @@ public static class ValidationFlowServiceCollectionExtensions
         configure?.Invoke(options);
         return services;
     }
+
+    public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
+    {
+        var provider = new InMemoryValidationPlanProvider();
+        foreach (var cfg in configs)
+        {
+            var type = Type.GetType(cfg.Type) ?? throw new ArgumentException($"Type {cfg.Type} not found");
+            var param = Expression.Parameter(typeof(object), "o");
+            var cast = Expression.Convert(param, type);
+            var prop = Expression.Property(cast, cfg.MetricProperty);
+            var conv = Expression.Convert(prop, typeof(decimal));
+            var lambda = Expression.Lambda<Func<object, decimal>>(conv, param).Compile();
+            var plan = new ValidationPlan(lambda, cfg.ThresholdType, cfg.ThresholdValue);
+            typeof(InMemoryValidationPlanProvider).GetMethod("AddPlan")!.MakeGenericMethod(type).Invoke(provider, new object[] { plan });
+        }
+
+        services.AddSingleton<IValidationPlanProvider>(provider);
+        services.AddScoped<SummarisationValidator>();
+
+        services.AddValidationInfrastructure(x =>
+        {
+            foreach (var cfg in configs)
+            {
+                var type = Type.GetType(cfg.Type) ?? throw new ArgumentException($"Type {cfg.Type} not found");
+                if (cfg.SaveValidation)
+                    x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                if (cfg.SaveCommit)
+                    x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+            }
+            x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
+        });
+
+        return services;
+    }
+
 }
