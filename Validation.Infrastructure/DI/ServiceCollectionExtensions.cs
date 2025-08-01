@@ -15,6 +15,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.DI;
 
@@ -210,6 +211,19 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
+        return services;
+    }
+
+    public static IServiceCollection AddMetricsPipeline(this IServiceCollection services, Action<PipelineWorkerOptions>? configure = null)
+    {
+        services.AddSingleton<PipelineWorkerOptions>(sp =>
+        {
+            var opts = new PipelineWorkerOptions();
+            configure?.Invoke(opts);
+            return opts;
+        });
+        services.AddScoped<PipelineOrchestrator>();
+        services.AddHostedService<PipelineWorker>();
         return services;
     }
 }
