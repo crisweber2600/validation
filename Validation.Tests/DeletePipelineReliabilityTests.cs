@@ -67,7 +67,7 @@ public class DeletePipelineReliabilityTests
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<DeletePipelineReliabilityException>(() =>
-            _policy.ExecuteAsync<string>(_ =>
+            _policy.ExecuteWithSyncOperationAsync<string>(_ =>
             {
                 attempts++;
                 throw new InvalidOperationException("Permanent failure");
@@ -85,7 +85,7 @@ public class DeletePipelineReliabilityTests
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _policy.ExecuteAsync<string>(_ =>
+            _policy.ExecuteWithSyncOperationAsync<string>(_ =>
             {
                 attempts++;
                 throw new ArgumentNullException("paramName", "Non-retryable failure");
@@ -103,7 +103,7 @@ public class DeletePipelineReliabilityTests
             try
             {
                 // Use a RuntimeException which is retryable
-                await _policy.ExecuteAsync<string>(_ => throw new InvalidOperationException("Retryable failure"));
+                await _policy.ExecuteWithSyncOperationAsync<string>(_ => throw new InvalidOperationException("Retryable failure"));
             }
             catch (DeletePipelineReliabilityException)
             {

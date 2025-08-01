@@ -88,6 +88,13 @@ public class DeletePipelineReliabilityPolicy
             $"Delete pipeline operation failed after {attempts} attempts", lastException);
     }
 
+    public async Task<T> ExecuteWithSyncOperationAsync<T>(
+        Func<CancellationToken, T> operation,
+        CancellationToken cancellationToken = default)
+    {
+        return await ExecuteAsync<T>(ct => Task.FromResult(operation(ct)), cancellationToken);
+    }
+
     public async Task ExecuteAsync(
         Func<CancellationToken, Task> operation,
         CancellationToken cancellationToken = default)
