@@ -178,6 +178,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+        
+        // Register entity ID and application name providers if not already registered
+        if (!services.Any(s => s.ServiceType == typeof(IEntityIdProvider)))
+        {
+            services.AddSingleton<IEntityIdProvider, ReflectionEntityIdProvider>();
+        }
+        if (!services.Any(s => s.ServiceType == typeof(IApplicationNameProvider)))
+        {
+            services.AddSingleton<IApplicationNameProvider>(sp => new StaticApplicationNameProvider("ValidationFlowApp"));
+        }
 
         // Register flow configs for ValidationFlowOrchestrator
         services.AddSingleton<IEnumerable<ValidationFlowConfig>>(configs);
@@ -195,6 +205,10 @@ public static class ServiceCollectionExtensions
                 {
                     x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                    
+                    // Add entity-aware consumer to support WithEntityIdSelector pattern
+                    x.AddConsumer(typeof(EntityAwareSaveValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(EntityAwareSaveValidationConsumer<>).MakeGenericType(type));
                     
                     // Add batch consumer if enabled
                     x.AddConsumer(typeof(BatchSaveValidationConsumer<>).MakeGenericType(type));
