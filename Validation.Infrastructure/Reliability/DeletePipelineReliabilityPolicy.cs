@@ -32,6 +32,7 @@ public class DeletePipelineReliabilityPolicy
 
         var attempts = 0;
         Exception? lastException = null;
+        var recorded = false;
 
         while (attempts < _options.MaxRetryAttempts)
         {
@@ -51,10 +52,13 @@ public class DeletePipelineReliabilityPolicy
             {
                 lastException = ex;
                 attempts++;
-                
-                if (ShouldRetry(ex, attempts - 1))
+                if (ShouldRetry(ex))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
+                    if (!recorded)
+                    {
+                        Interlocked.Increment(ref _consecutiveFailures);
+                        recorded = true;
+                    }
                     _lastFailureTime = DateTime.UtcNow;
 
                     _logger.LogWarning(ex, 
@@ -82,6 +86,7 @@ public class DeletePipelineReliabilityPolicy
         }
 
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);
+        _lastFailureTime = DateTime.UtcNow;
         
         // Always wrap retryable exceptions that exhausted retries in DeletePipelineReliabilityException
         throw new DeletePipelineReliabilityException(
@@ -99,11 +104,8 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
         // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;

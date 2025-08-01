@@ -107,6 +107,13 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection SetupValidation(this IServiceCollection services, Action<Setup.SetupValidationBuilder> configure)
+    {
+        var builder = new Setup.SetupValidationBuilder(services);
+        configure(builder);
+        return builder.Apply();
+    }
+
     public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
     {
         // Set up validation plan provider with configurations
