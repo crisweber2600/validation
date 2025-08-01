@@ -1,12 +1,13 @@
 using MassTransit;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
+using Validation.Domain.Entities;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.Messaging;
 
-public class SaveRequestedConsumer : IConsumer<SaveRequested>
+public class SaveRequestedConsumer : IConsumer<SaveRequested<Item>>
 {
     private readonly ISaveAuditRepository _repository;
     private readonly IValidationRule _rule;
@@ -18,7 +19,7 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
         _rule = rule;
     }
 
-    public async Task Consume(ConsumeContext<SaveRequested> context)
+    public async Task Consume(ConsumeContext<SaveRequested<Item>> context)
     {
         var metric = new Random().Next(0, 100); // simulate metric
         var isValid = _rule.Validate(_previousMetric, metric);
@@ -26,11 +27,11 @@ public class SaveRequestedConsumer : IConsumer<SaveRequested>
         var audit = new SaveAudit
         {
             Id = Guid.NewGuid(),
-            EntityId = context.Message.Id,
+            EntityId = context.Message.EntityId,
             IsValid = isValid,
             Metric = metric
         };
         await _repository.AddAsync(audit, context.CancellationToken);
-        await context.Publish(new SaveValidated(context.Message.Id, isValid, metric), context.CancellationToken);
+        await context.Publish(new SaveValidated<Item>(context.Message.AppName, context.Message.EntityType, context.Message.EntityId, context.Message.Payload, isValid), context.CancellationToken);
     }
 }
