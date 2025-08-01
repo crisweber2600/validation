@@ -1,6 +1,6 @@
 using MassTransit.Testing;
 using Validation.Domain.Entities;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Infrastructure.Repositories;
 
 namespace Validation.Tests;
@@ -37,7 +37,7 @@ public class EventPublishingRepositoryTests
             var repository = new EventPublishingRepository<Item>(harness.Bus);
             var id = Guid.NewGuid();
             await repository.DeleteAsync(id);
-            Assert.True(await harness.Published.Any<DeleteRequested>());
+            Assert.True(await harness.Published.Any<DeleteRequested<Item>>());
         }
         finally
         {

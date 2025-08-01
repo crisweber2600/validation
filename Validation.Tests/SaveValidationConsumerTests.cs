@@ -1,6 +1,6 @@
 using MassTransit;
 using MassTransit.Testing;
-using Validation.Domain.Events;
+using ValidationFlow.Messages;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Domain.Entities;
@@ -28,7 +28,8 @@ public class SaveValidationConsumerTests
         await harness.Start();
         try
         {
-            await harness.InputQueueSendEndpoint.Send(new SaveRequested(Guid.NewGuid()));
+            var message = new SaveRequested<Item>("TestApp", nameof(Item), Guid.NewGuid(), new Item(5));
+            await harness.InputQueueSendEndpoint.Send(message);
 
             Assert.True(await harness.Published.Any<SaveValidated<Item>>());
         }
