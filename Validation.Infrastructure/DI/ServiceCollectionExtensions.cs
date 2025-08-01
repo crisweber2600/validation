@@ -1,4 +1,5 @@
 using MassTransit;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +69,10 @@ public static class ServiceCollectionExtensions
         {
             svc = new ManualValidatorService();
             services.AddSingleton<IManualValidatorService>(svc);
+        }
+        if (svc.GetTypedRules(typeof(T)).Any(r => r.Equals(rule)))
+        {
+            throw new InvalidOperationException($"A duplicate validator rule for {typeof(T).Name} is already registered.");
         }
         svc.AddRule(rule);
         return services;
