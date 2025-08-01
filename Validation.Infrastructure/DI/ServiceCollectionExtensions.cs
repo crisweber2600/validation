@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
+using Validation.Domain;
 using Validation.Domain.Validation;
 using Validation.Domain.Events;
 using Validation.Domain.Repositories;
@@ -31,6 +32,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
+        services.AddSingleton<IEntityIdProvider>(_ => new ReflectionBasedEntityIdProvider());
+        services.AddSingleton<IApplicationNameProvider>(_ => new StaticApplicationNameProvider("ValidationService"));
 
         // Add unified event hub
         services.AddSingleton<IValidationEventHub, ValidationEventHub>();
