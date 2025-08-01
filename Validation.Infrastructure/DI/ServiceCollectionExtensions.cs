@@ -1,4 +1,5 @@
 using MassTransit;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -138,6 +139,22 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
+        foreach (var config in configs)
+        {
+            if (config.ManualRules != null && config.ManualRules.Count > 0)
+            {
+                var type = Type.GetType(config.Type, true)!;
+                foreach (var ruleExpr in config.ManualRules)
+                {
+                    var ruleDelegate = CreateRuleDelegate(type, ruleExpr);
+                    typeof(ServiceCollectionExtensions)
+                        .GetMethod(nameof(AddValidatorRule))!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object[] { services, ruleDelegate });
+                }
+            }
+        }
+
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
         {
@@ -168,6 +185,11 @@ public static class ServiceCollectionExtensions
                         services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
                     }
                 }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
         });
@@ -176,6 +198,32 @@ public static class ServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
 
         return services;
+    }
+
+    private static Delegate CreateRuleDelegate(Type entityType, string expression)
+    {
+        var operators = new[] {">=","<=","==",">","<"};
+        string op = operators.First(o => expression.Contains(o));
+        var parts = expression.Split(op);
+        var propName = parts[0].Trim();
+        var value = decimal.Parse(parts[1].Trim());
+
+        var param = Expression.Parameter(entityType, "x");
+        var prop = Expression.Property(param, propName);
+        var constant = Expression.Convert(Expression.Constant(Convert.ChangeType(value, prop.Type)), prop.Type);
+
+        Expression body = op switch
+        {
+            ">" => Expression.GreaterThan(prop, constant),
+            "<" => Expression.LessThan(prop, constant),
+            ">=" => Expression.GreaterThanOrEqual(prop, constant),
+            "<=" => Expression.LessThanOrEqual(prop, constant),
+            "==" => Expression.Equal(prop, constant),
+            _ => throw new NotSupportedException()
+        };
+
+        var lambdaType = typeof(Func<,>).MakeGenericType(entityType, typeof(bool));
+        return Expression.Lambda(lambdaType, body, param).Compile();
     }
 }
 
