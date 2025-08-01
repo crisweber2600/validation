@@ -32,6 +32,7 @@ public class DeletePipelineReliabilityPolicy
 
         var attempts = 0;
         Exception? lastException = null;
+        var operationFailed = false;
 
         while (attempts < _options.MaxRetryAttempts)
         {
@@ -52,12 +53,10 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
+                _lastFailureTime = DateTime.UtcNow;
                 if (ShouldRetry(ex, attempts - 1))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
-
-                    _logger.LogWarning(ex, 
+                    _logger.LogWarning(ex,
                         "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
                         attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
 
@@ -69,16 +68,26 @@ public class DeletePipelineReliabilityPolicy
                     else
                     {
                         // Retryable exception but retries exhausted - this will be wrapped below
+                        operationFailed = true;
                         break;
                     }
                 }
                 else
                 {
-                    // Non-retryable exception - rethrow immediately
-                    _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
-                    throw;
+                    if (ex is ArgumentException or ArgumentNullException)
+                    {
+                        _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
+                        throw;
+                    }
+                    operationFailed = true;
+                    break;
                 }
             }
+        }
+
+        if (operationFailed)
+        {
+            Interlocked.Increment(ref _consecutiveFailures);
         }
 
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);

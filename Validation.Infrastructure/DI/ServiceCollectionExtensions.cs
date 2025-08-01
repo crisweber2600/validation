@@ -1,6 +1,8 @@
 using MassTransit;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -101,6 +103,39 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    private static Delegate BuildRuleDelegate(Type entityType, string rule)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(rule.Trim(),
+            "^(?<prop>\\w+)\\s*(?<op>>=|<=|==|!=|>|<)\\s*(?<val>.+)$");
+        if (!match.Success) throw new ArgumentException($"Invalid rule expression '{rule}'");
+        var propName = match.Groups["prop"].Value;
+        var op = match.Groups["op"].Value;
+        var valRaw = match.Groups["val"].Value.Trim().Trim('"');
+
+        var param = Expression.Parameter(entityType, "e");
+        var prop = Expression.PropertyOrField(param, propName);
+        object? converted;
+        if (prop.Type.IsEnum)
+            converted = Enum.Parse(prop.Type, valRaw);
+        else if (prop.Type == typeof(Guid))
+            converted = Guid.Parse(valRaw);
+        else
+            converted = Convert.ChangeType(valRaw, prop.Type, CultureInfo.InvariantCulture);
+        var constant = Expression.Constant(converted, prop.Type);
+        Expression body = op switch
+        {
+            ">" => Expression.GreaterThan(prop, constant),
+            "<" => Expression.LessThan(prop, constant),
+            ">=" => Expression.GreaterThanOrEqual(prop, constant),
+            "<=" => Expression.LessThanOrEqual(prop, constant),
+            "==" => Expression.Equal(prop, constant),
+            "!=" => Expression.NotEqual(prop, constant),
+            _ => throw new NotSupportedException($"Operator {op} not supported")
+        };
+        var delegateType = typeof(Func<,>).MakeGenericType(entityType, typeof(bool));
+        return Expression.Lambda(delegateType, body, param).Compile();
+    }
+
     public static IServiceCollection AddValidatorService(this IServiceCollection services)
     {
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
@@ -138,6 +173,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
+        foreach (var config in configs)
+        {
+            var type = Type.GetType(config.Type, true)!;
+            foreach (var rule in config.ManualRules)
+            {
+                var del = BuildRuleDelegate(type, rule);
+                typeof(ServiceCollectionExtensions).GetMethod(nameof(AddValidatorRule))!
+                    .MakeGenericMethod(type)
+                    .Invoke(null, new object[] { services, del });
+            }
+        }
+
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
         {
@@ -153,6 +200,16 @@ public static class ServiceCollectionExtensions
                 {
                     x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteValidation)
+                {
+                    x.AddConsumer(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
                 }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));

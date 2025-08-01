@@ -93,4 +93,56 @@ public class AddValidationFlowsTests
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         Assert.NotNull(planProvider);
     }
+
+    [Fact]
+    public void AddValidationFlows_registers_delete_consumers_from_config()
+    {
+        var configs = new List<ValidationFlowConfig>
+        {
+            new ValidationFlowConfig
+            {
+                Type = "Validation.Domain.Entities.Item, Validation.Domain",
+                SaveValidation = false,
+                SaveCommit = false,
+                DeleteValidation = true,
+                DeleteCommit = true
+            }
+        };
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("validation-flows-delete"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
+    }
+
+    [Fact]
+    public void AddValidationFlows_registers_manual_rules()
+    {
+        var configs = new List<ValidationFlowConfig>
+        {
+            new ValidationFlowConfig
+            {
+                Type = "Validation.Domain.Entities.Item, Validation.Domain",
+                ManualRules = new List<string> { "Metric > 0" }
+            }
+        };
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("validation-flows-rules"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        var manual = scope.ServiceProvider.GetRequiredService<IManualValidatorService>();
+        Assert.True(manual.Validate(new Item(1)));
+        Assert.False(manual.Validate(new Item(-2)));
+    }
 }
