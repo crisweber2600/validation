@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Validation.Domain\Validation.Domain.csproj" />
+    <ProjectReference Include="..\ValidationFlow.Messages\ValidationFlow.Messages.csproj" />
   </ItemGroup>
 
   <ItemGroup>
