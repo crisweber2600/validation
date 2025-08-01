@@ -8,6 +8,8 @@ using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
 using Validation.Domain.Validation;
+using Validation.Domain.Events;
+using Validation.Domain.Repositories;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
@@ -15,6 +17,7 @@ using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Auditing;
 using Validation.Infrastructure.Observability;
+using Validation.Infrastructure.Pipeline;
 
 namespace Validation.Infrastructure.DI;
 
@@ -28,6 +31,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddSingleton<IEnhancedManualValidatorService, EnhancedManualValidatorService>();
+
+        // Add unified event hub
+        services.AddSingleton<IValidationEventHub, ValidationEventHub>();
+
+        // Add pipeline orchestrators
+        services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
+        services.AddScoped<IPipelineOrchestrator<SummarisationInput>, SummarisationPipelineOrchestrator>();
+
+        // Add repository services (generic registration)
+        services.AddScoped(typeof(ISummaryRecordRepository<>), typeof(EfCoreSummaryRecordRepository<>));
 
         // Add reliability services
         services.AddSingleton<DeleteReliabilityOptions>();
@@ -71,6 +84,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+
+        // Add unified event hub
+        services.AddSingleton<IValidationEventHub, ValidationEventHub>();
+
+        // Add pipeline orchestrators
+        services.AddScoped<IPipelineOrchestrator<MetricsInput>, MetricsPipelineOrchestrator>();
+        services.AddScoped<IPipelineOrchestrator<SummarisationInput>, SummarisationPipelineOrchestrator>();
+
+        // Add MongoDB repository services
+        services.AddScoped(typeof(ISummaryRecordRepository<>), typeof(MongoSummaryRecordRepository<>));
 
         services.AddMassTransit(x =>
         {

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using MongoDB.Driver;
 using Validation.Domain.Validation;
+using Validation.Domain.Events;
 using Validation.Infrastructure.DI;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Reliability;

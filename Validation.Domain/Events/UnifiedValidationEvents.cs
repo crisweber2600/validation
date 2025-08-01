@@ -3,6 +3,15 @@ using System;
 namespace Validation.Domain.Events;
 
 /// <summary>
+/// Central event hub for all validation messages and unified event handling
+/// </summary>
+public interface IValidationEventHub
+{
+    Task PublishAsync<T>(T validationEvent) where T : IValidationEvent;
+    Task<IEnumerable<IValidationEvent>> GetEventsAsync(string entityType, DateTime? since = null);
+}
+
+/// <summary>
 /// Base interface for all validation events to enable unified handling
 /// </summary>
 public interface IValidationEvent
