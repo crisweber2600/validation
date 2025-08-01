@@ -77,6 +77,16 @@ public class SetupValidationBuilder
         return this;
     }
 
+    public SetupValidationBuilder AddValidationFlow<T>(Expression<Func<T, decimal>> metricSelector,
+        Action<ValidationFlowBuilder<T>>? configure = null)
+    {
+        var builder = new ValidationFlowBuilder<T>();
+        builder.WithThreshold(metricSelector, ThresholdType.GreaterThan, 0);
+        configure?.Invoke(builder);
+        _flowConfigs.Add(builder.Build());
+        return this;
+    }
+
     /// <summary>
     /// Add a manual validation rule
     /// </summary>
@@ -425,6 +435,19 @@ public static class SetupValidationExtensions
     {
         var builder = services.AddSetupValidation();
         configure?.Invoke(builder);
+        return builder.Build();
+    }
+
+    public static IServiceCollection AddSetupValidation<T>(this IServiceCollection services,
+        Action<SetupValidationBuilder> configure,
+        Expression<Func<T, decimal>> metricSelector)
+    {
+        var builder = services.AddSetupValidation();
+        builder.AddValidationFlow<T>(flow =>
+        {
+            flow.WithThreshold(metricSelector, ThresholdType.GreaterThan, 0);
+        });
+        configure(builder);
         return builder.Build();
     }
 }

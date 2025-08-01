@@ -20,14 +20,17 @@ class Program
             .ConfigureServices((context, services) =>
             {
                 // Configure the unified validation system using the fluent builder
-                services.AddSetupValidation()
-                    .AddValidationFlow<Item>(flow => flow
-                        .EnableSaveValidation()
-                        .EnableDeleteValidation()
-                        .EnableSoftDelete()
-                        .WithThreshold(x => x.Metric, ThresholdType.GreaterThan, 5)
-                        .WithValidationTimeout(TimeSpan.FromMinutes(1))
-                        .EnableAuditing())
+                services.AddSetupValidation<Item>(builder =>
+                {
+                    builder
+                        .UseEntityFramework<AppDbContext>()
+                        .AddValidationFlow<Item>(flow => flow
+                            .EnableSaveValidation()
+                            .EnableDeleteValidation()
+                            .EnableSoftDelete()
+                            .WithValidationTimeout(TimeSpan.FromMinutes(1))
+                            .EnableAuditing());
+                }, item => item.Metric)
                     
                     .AddRule<Item>("PositiveValue", item => item.Metric > 0)
                     .AddRule<Item>("ReasonableRange", item => item.Metric <= 1000)
@@ -153,4 +156,11 @@ class Program
             logger.LogInformation("  Attempt Number: {AttemptNumber}", retryableEvent.AttemptNumber);
         }
     }
+}
+public class AppDbContext : Microsoft.EntityFrameworkCore.DbContext
+{
+    public AppDbContext(Microsoft.EntityFrameworkCore.DbContextOptions<AppDbContext> options)
+        : base(options) { }
+
+    public Microsoft.EntityFrameworkCore.DbSet<Item> Items { get; set; }
 }

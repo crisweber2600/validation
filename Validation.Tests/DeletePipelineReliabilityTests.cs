@@ -109,11 +109,18 @@ public class DeletePipelineReliabilityTests
             {
                 // Expected after retries are exhausted
             }
+            catch (DeletePipelineCircuitOpenException)
+            {
+                // Circuit may open during setup loops
+            }
         }
 
-        // Act & Assert
-        await Assert.ThrowsAsync<DeletePipelineCircuitOpenException>(() =>
+        // Act
+        var ex = await Record.ExceptionAsync(() =>
             _policy.ExecuteAsync<string>(_ => Task.FromResult("should not execute")));
+
+        // Assert
+        Assert.IsType<DeletePipelineCircuitOpenException>(ex);
     }
 
     [Fact]
