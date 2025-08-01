@@ -154,6 +154,20 @@ public static class ServiceCollectionExtensions
                     x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                 }
+                if (config.DeleteValidation)
+                {
+                    if (config.SoftDeleteSupport)
+                    {
+                        // Use reliable delete validation consumer for soft deletes
+                        x.AddConsumer(typeof(ReliableDeleteValidationConsumer<>).MakeGenericType(type));
+                        services.AddScoped(typeof(ReliableDeleteValidationConsumer<>).MakeGenericType(type));
+                    }
+                    else
+                    {
+                        x.AddConsumer(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                        services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                    }
+                }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
         });

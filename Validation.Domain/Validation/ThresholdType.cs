@@ -3,5 +3,9 @@ namespace Validation.Domain.Validation;
 public enum ThresholdType
 {
     RawDifference,
-    PercentChange
+    PercentChange,
+    GreaterThan,
+    LessThan,
+    EqualTo,
+    NotEqualTo
 }
