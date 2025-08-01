@@ -15,6 +15,12 @@ namespace Validation.Infrastructure.DI;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers infrastructure services and configures MassTransit with
+    /// reliability features such as message retry, in-memory outbox,
+    /// Serilog failure logging and a dead-letter queue. Also adds
+    /// OpenTelemetry tracing for MassTransit.
+    /// </summary>
     public static IServiceCollection AddValidationInfrastructure(
         this IServiceCollection services,
         Action<IBusRegistrationConfigurator>? configureBus = null)
@@ -26,15 +32,32 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             configureBus?.Invoke(x);
+
+            x.AddConfigureEndpointsCallback((_, __, cfg) => { cfg.UseInMemoryOutbox(); });
+
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromMilliseconds(200)));
+                cfg.ConnectReceiveObserver(new SerilogReceiveObserver(Log.Logger));
+                cfg.ReceiveEndpoint("save_requests_queue_error", e => { });
+                cfg.ConfigureEndpoints(context);
+            });
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        services.AddOpenTelemetry().WithTracing(builder => builder
+            .AddAspNetCoreInstrumentation()
+            .AddSource("MassTransit"));
 
         return services;
     }
 
+    /// <summary>
+    /// Registers MongoDB-backed infrastructure services and configures
+    /// MassTransit with the same reliability options as
+    /// <see cref="AddValidationInfrastructure"/>.
+    /// </summary>
     public static IServiceCollection AddMongoValidationInfrastructure(
         this IServiceCollection services, IMongoDatabase database,
         Action<IBusRegistrationConfigurator>? configureBus = null)
@@ -47,11 +70,23 @@ public static class ServiceCollectionExtensions
         services.AddMassTransit(x =>
         {
             configureBus?.Invoke(x);
+
+            x.AddConfigureEndpointsCallback((_, __, cfg) => { cfg.UseInMemoryOutbox(); });
+
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromMilliseconds(200)));
+                cfg.ConnectReceiveObserver(new SerilogReceiveObserver(Log.Logger));
+                cfg.ReceiveEndpoint("save_requests_queue_error", e => { });
+                cfg.ConfigureEndpoints(context);
+            });
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        services.AddOpenTelemetry().WithTracing(builder => builder
+            .AddAspNetCoreInstrumentation()
+            .AddSource("MassTransit"));
 
         return services;
     }
