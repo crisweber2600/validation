@@ -5,6 +5,8 @@ using Validation.Infrastructure.Messaging;
 using MassTransit;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.DI;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 

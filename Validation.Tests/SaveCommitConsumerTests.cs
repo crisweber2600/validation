@@ -5,6 +5,8 @@ using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
 using Validation.Domain.Entities;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 
@@ -23,7 +25,9 @@ public class SaveCommitConsumerTests
     public async Task Publish_SaveCommitFault_on_error()
     {
         var repo = new FailingRepository();
-        var consumer = new SaveCommitConsumer<Item>(repo);
+        var logger = new TestLogger<SaveCommitConsumer<Item>>();
+        var src = new ActivitySource("commit");
+        var consumer = new SaveCommitConsumer<Item>(repo, logger, src);
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);
@@ -34,6 +38,40 @@ public class SaveCommitConsumerTests
             await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>(Guid.NewGuid(), Guid.NewGuid()));
 
             Assert.True(await harness.Published.Any<SaveCommitFault<Item>>());
+            Assert.Contains(logger.Messages, m => m.Contains("Failed"));
+        }
+        finally
+        {
+            await harness.Stop();
+        }
+    }
+
+    [Fact]
+    public async Task Emits_activity_span()
+    {
+        var repo = new FailingRepository();
+        var logger = new TestLogger<SaveCommitConsumer<Item>>();
+        var src = new ActivitySource("commit2");
+        var consumer = new SaveCommitConsumer<Item>(repo, logger, src);
+
+        var activities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = s => true,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStarted = a => activities.Add(a)
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var harness = new InMemoryTestHarness();
+        harness.Consumer(() => consumer);
+
+        await harness.Start();
+        try
+        {
+            await harness.InputQueueSendEndpoint.Send(new SaveValidated<Item>(Guid.NewGuid(), Guid.NewGuid()));
+
+            Assert.True(activities.Any());
         }
         finally
         {

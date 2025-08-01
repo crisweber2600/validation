@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 using OpenTelemetry.Trace;
 using Serilog;
+using System.Diagnostics;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
@@ -30,7 +31,13 @@ public static class ServiceCollectionExtensions
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        var source = new ActivitySource("Validation.Infrastructure");
+        services.AddSingleton(source);
+
+        services.AddOpenTelemetry()
+            .WithTracing(builder => builder
+                .AddSource("Validation.Infrastructure")
+                .AddAspNetCoreInstrumentation());
 
         return services;
     }
@@ -51,7 +58,13 @@ public static class ServiceCollectionExtensions
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
 
-        services.AddOpenTelemetry().WithTracing(builder => builder.AddAspNetCoreInstrumentation());
+        var source = new ActivitySource("Validation.Infrastructure");
+        services.AddSingleton(source);
+
+        services.AddOpenTelemetry()
+            .WithTracing(builder => builder
+                .AddSource("Validation.Infrastructure")
+                .AddAspNetCoreInstrumentation());
 
         return services;
     }
@@ -131,7 +144,10 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddLogging(b => b.AddSerilog());
-        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+        var source = new ActivitySource("Validation.Infrastructure");
+        services.AddSingleton(source);
+        services.AddOpenTelemetry()
+            .WithTracing(b => b.AddSource("Validation.Infrastructure").AddAspNetCoreInstrumentation());
 
         return services;
     }
@@ -179,7 +195,9 @@ public static class ValidationFlowServiceCollectionExtensions
             x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
         });
         services.AddLogging(b => b.AddSerilog());
-        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+        var source = new ActivitySource("Validation.Infrastructure");
+        services.AddSingleton(source);
+        services.AddOpenTelemetry().WithTracing(b => b.AddSource("Validation.Infrastructure").AddAspNetCoreInstrumentation());
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
         return services;
