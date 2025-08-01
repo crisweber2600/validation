@@ -5,6 +5,8 @@ using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
 using Validation.Domain.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 
@@ -23,7 +25,9 @@ public class SaveCommitConsumerTests
     public async Task Publish_SaveCommitFault_on_error()
     {
         var repo = new FailingRepository();
-        var consumer = new SaveCommitConsumer<Item>(repo);
+        var consumer = new SaveCommitConsumer<Item>(repo,
+            NullLogger<SaveCommitConsumer<Item>>.Instance,
+            new ActivitySource("test"));
 
         var harness = new InMemoryTestHarness();
         harness.Consumer(() => consumer);

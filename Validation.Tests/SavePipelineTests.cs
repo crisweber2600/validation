@@ -6,6 +6,8 @@ using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 
 namespace Validation.Tests;
 
@@ -62,8 +64,15 @@ public class SavePipelineTests
     {
         var repo = new InMemorySaveAuditRepository();
         var harness = new InMemoryTestHarness();
-        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
-        harness.Consumer(() => new SaveCommitConsumer<Item>(repo));
+        harness.Consumer(() => new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repo,
+            new SummarisationValidator(),
+            NullLogger<SaveValidationConsumer<Item>>.Instance,
+            new ActivitySource("test")));
+        harness.Consumer(() => new SaveCommitConsumer<Item>(repo,
+            NullLogger<SaveCommitConsumer<Item>>.Instance,
+            new ActivitySource("test")));
 
         await harness.Start();
         try
@@ -84,8 +93,15 @@ public class SavePipelineTests
     {
         var repo = new FailingRepository();
         var harness = new InMemoryTestHarness();
-        harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
-        harness.Consumer(() => new SaveCommitConsumer<Item>(repo));
+        harness.Consumer(() => new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repo,
+            new SummarisationValidator(),
+            NullLogger<SaveValidationConsumer<Item>>.Instance,
+            new ActivitySource("test")));
+        harness.Consumer(() => new SaveCommitConsumer<Item>(repo,
+            NullLogger<SaveCommitConsumer<Item>>.Instance,
+            new ActivitySource("test")));
 
         await harness.Start();
         try
@@ -105,7 +121,12 @@ public class SavePipelineTests
     {
         var repo = new InMemorySaveAuditRepository();
         var harness = new InMemoryTestHarness();
-        var validationConsumer = harness.Consumer(() => new SaveValidationConsumer<Item>(new TestPlanProvider(), repo, new SummarisationValidator()));
+        var validationConsumer = harness.Consumer(() => new SaveValidationConsumer<Item>(
+            new TestPlanProvider(),
+            repo,
+            new SummarisationValidator(),
+            NullLogger<SaveValidationConsumer<Item>>.Instance,
+            new ActivitySource("test")));
 
         await harness.Start();
         try
