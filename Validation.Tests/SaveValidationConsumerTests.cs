@@ -12,6 +12,8 @@ public class SaveValidationConsumerTests
     private class TestPlanProvider : IValidationPlanProvider
     {
         public IEnumerable<IValidationRule> GetRules<T>() => new[] { new RawDifferenceRule(100) };
+        public ValidationPlan GetPlan(Type t) => new ValidationPlan(new[] { new RawDifferenceRule(100) });
+        public void AddPlan<T>(ValidationPlan plan) { }
     }
 
     [Fact]
