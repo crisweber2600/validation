@@ -1,8 +1,9 @@
 using MongoDB.Driver;
+using Validation.Domain.Validation;
 
 namespace Validation.Infrastructure.Repositories;
 
-public class MongoSaveAuditRepository : ISaveAuditRepository
+public class MongoSaveAuditRepository : ISaveAuditRepository, IAuditMetricRepository
 {
     private readonly IMongoCollection<SaveAudit> _collection;
 
@@ -38,5 +39,12 @@ public class MongoSaveAuditRepository : ISaveAuditRepository
             .Find(x => x.EntityId == entityId)
             .SortByDescending(x => x.Timestamp)
             .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<decimal?> GetLastMetricAsync(string id, CancellationToken ct = default)
+    {
+        var guid = Guid.Parse(id);
+        var last = await GetLastAsync(guid, ct);
+        return last?.Metric;
     }
 }
