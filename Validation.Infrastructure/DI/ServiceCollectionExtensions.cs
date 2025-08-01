@@ -69,7 +69,14 @@ public static class ServiceCollectionExtensions
             svc = new ManualValidatorService();
             services.AddSingleton<IManualValidatorService>(svc);
         }
-        svc.AddRule(rule);
+        try
+        {
+            svc.AddRule(rule);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidOperationException($"A validation rule for type '{typeof(T).Name}' with the same signature already exists.", ex);
+        }
         return services;
     }
 

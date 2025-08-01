@@ -73,4 +73,16 @@ public class AddValidatorServiceTests
         var validEntity = new TestEntity { Id = 1, Name = "Hello" };
         Assert.True(validatorService.Validate(validEntity));
     }
+
+    [Fact]
+    public void AddValidatorRule_throws_when_duplicate_rule_added()
+    {
+        var services = new ServiceCollection();
+        Func<TestEntity, bool> rule = e => e.Id > 0;
+
+        services.AddValidatorRule<TestEntity>(rule);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => services.AddValidatorRule<TestEntity>(rule));
+        Assert.Contains("already", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
