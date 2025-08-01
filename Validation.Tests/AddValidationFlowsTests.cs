@@ -18,6 +18,8 @@ public class AddValidationFlowsTests
                 "Type": "Validation.Domain.Entities.Item, Validation.Domain",
                 "SaveValidation": true,
                 "SaveCommit": true,
+                "DeleteValidation": true,
+                "DeleteCommit": true,
                 "MetricProperty": "Metric",
                 "ThresholdType": 1,
                 "ThresholdValue": 0.2
@@ -30,6 +32,8 @@ public class AddValidationFlowsTests
         {
             element.TryGetProperty("ThresholdType", out var thresholdTypeElement);
             element.TryGetProperty("ThresholdValue", out var thresholdValueElement);
+            element.TryGetProperty("DeleteValidation", out var deleteValElement);
+            element.TryGetProperty("DeleteCommit", out var deleteCommitElement);
             
             configs.Add(new ValidationFlowConfig
             {
@@ -40,9 +44,15 @@ public class AddValidationFlowsTests
                 ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number 
                     ? (ThresholdType?)thresholdTypeElement.GetInt32() 
                     : null,
-                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number 
-                    ? thresholdValueElement.GetDecimal() 
-                    : null
+                ThresholdValue = thresholdValueElement.ValueKind == JsonValueKind.Number
+                    ? thresholdValueElement.GetDecimal()
+                    : null,
+                DeleteValidation = deleteValElement.ValueKind == JsonValueKind.True || deleteValElement.ValueKind == JsonValueKind.False
+                    ? deleteValElement.GetBoolean()
+                    : false,
+                DeleteCommit = deleteCommitElement.ValueKind == JsonValueKind.True || deleteCommitElement.ValueKind == JsonValueKind.False
+                    ? deleteCommitElement.GetBoolean()
+                    : false
             });
         }
 
@@ -57,6 +67,8 @@ public class AddValidationFlowsTests
         // Verify that the consumers were registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.NotNull(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
         
         // Verify that validation plan provider was configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
@@ -88,6 +100,8 @@ public class AddValidationFlowsTests
         // Verify that only SaveValidationConsumer was registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.Null(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
         
         // Verify that validation plan provider was still configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
