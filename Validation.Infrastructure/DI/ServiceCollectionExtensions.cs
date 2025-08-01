@@ -107,6 +107,34 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddSaveCommit<T>(
+        this IServiceCollection services,
+        Action<IBusRegistrationConfigurator>? configureBus = null)
+    {
+        services.AddScoped<SaveCommitConsumer<T>>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            configureBus?.Invoke(x);
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        return services;
+    }
+
+    public static IServiceCollection AddDeleteCommit<T>(
+        this IServiceCollection services,
+        Action<IBusRegistrationConfigurator>? configureBus = null)
+    {
+        services.AddScoped<DeleteCommitConsumer<T>>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<DeleteCommitConsumer<T>>();
+            configureBus?.Invoke(x);
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        return services;
+    }
+
     public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
     {
         // Set up validation plan provider with configurations
