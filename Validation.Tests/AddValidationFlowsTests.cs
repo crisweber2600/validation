@@ -18,6 +18,8 @@ public class AddValidationFlowsTests
                 "Type": "Validation.Domain.Entities.Item, Validation.Domain",
                 "SaveValidation": true,
                 "SaveCommit": true,
+                "DeleteValidation": true,
+                "DeleteCommit": true,
                 "MetricProperty": "Metric",
                 "ThresholdType": 1,
                 "ThresholdValue": 0.2
@@ -36,6 +38,8 @@ public class AddValidationFlowsTests
                 Type = element.GetProperty("Type").GetString()!,
                 SaveValidation = element.GetProperty("SaveValidation").GetBoolean(),
                 SaveCommit = element.GetProperty("SaveCommit").GetBoolean(),
+                DeleteValidation = element.GetProperty("DeleteValidation").GetBoolean(),
+                DeleteCommit = element.GetProperty("DeleteCommit").GetBoolean(),
                 MetricProperty = element.GetProperty("MetricProperty").GetString(),
                 ThresholdType = thresholdTypeElement.ValueKind == JsonValueKind.Number 
                     ? (ThresholdType?)thresholdTypeElement.GetInt32() 
@@ -57,6 +61,8 @@ public class AddValidationFlowsTests
         // Verify that the consumers were registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.NotNull(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
         
         // Verify that validation plan provider was configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
@@ -73,6 +79,8 @@ public class AddValidationFlowsTests
                 Type = "Validation.Domain.Entities.Item, Validation.Domain",
                 SaveValidation = true,
                 SaveCommit = false,
+                DeleteValidation = false,
+                DeleteCommit = false,
                 // No MetricProperty, ThresholdType, or ThresholdValue
             }
         };
@@ -88,6 +96,8 @@ public class AddValidationFlowsTests
         // Verify that only SaveValidationConsumer was registered
         Assert.NotNull(scope.ServiceProvider.GetService<SaveValidationConsumer<Item>>());
         Assert.Null(scope.ServiceProvider.GetService<SaveCommitConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.Null(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
         
         // Verify that validation plan provider was still configured
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();

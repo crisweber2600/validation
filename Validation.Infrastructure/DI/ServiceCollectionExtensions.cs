@@ -109,6 +109,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+        services.AddScoped<UnitOfWork>();
 
         // Set up MassTransit with dynamic consumer registration
         services.AddMassTransitTestHarness(x =>
@@ -118,13 +119,31 @@ public static class ServiceCollectionExtensions
                 var type = Type.GetType(config.Type, true)!;
                 if (config.SaveValidation)
                 {
-                    x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
-                    services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                    typeof(ValidationFlowRegistrationExtensions)
+                        .GetMethod("AddSaveValidation")!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object?[] { services, x });
                 }
                 if (config.SaveCommit)
                 {
-                    x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
-                    services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                    typeof(ValidationFlowRegistrationExtensions)
+                        .GetMethod("AddSaveCommit")!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object?[] { services, x });
+                }
+                if (config.DeleteValidation)
+                {
+                    typeof(ValidationFlowRegistrationExtensions)
+                        .GetMethod("AddDeleteValidation")!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object?[] { services, x });
+                }
+                if (config.DeleteCommit)
+                {
+                    typeof(ValidationFlowRegistrationExtensions)
+                        .GetMethod("AddDeleteCommit")!
+                        .MakeGenericMethod(type)
+                        .Invoke(null, new object?[] { services, x });
                 }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
