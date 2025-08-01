@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Validation.Infrastructure.DI;
 using Validation.Infrastructure.Metrics;
 using Validation.Infrastructure.Reliability;
 using Validation.Infrastructure.Auditing;
+using Validation.Infrastructure.Repositories;
 
 namespace Validation.Infrastructure.Setup;
 
@@ -72,6 +74,19 @@ public class SetupValidationBuilder
     public SetupValidationBuilder AddValidationFlow<T>(Action<ValidationFlowBuilder<T>>? configure = null)
     {
         var builder = new ValidationFlowBuilder<T>();
+        configure?.Invoke(builder);
+        _flowConfigs.Add(builder.Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Add a validation flow for a specific entity type using a metric selector
+    /// </summary>
+    public SetupValidationBuilder AddValidationFlow<T>(Expression<Func<T, decimal>> metricSelector,
+        Action<ValidationFlowBuilder<T>>? configure = null)
+    {
+        var builder = new ValidationFlowBuilder<T>();
+        builder.WithMetricSelector(metricSelector);
         configure?.Invoke(builder);
         _flowConfigs.Add(builder.Build());
         return this;
@@ -297,6 +312,15 @@ public class ValidationFlowBuilder<T>
         return this;
     }
 
+    public ValidationFlowBuilder<T> WithMetricSelector(Expression<Func<T, decimal>> selector)
+    {
+        if (selector.Body is MemberExpression member)
+        {
+            _config.MetricProperty = member.Member.Name;
+        }
+        return this;
+    }
+
     public ValidationFlowBuilder<T> WithThreshold<TProperty>(
         Expression<Func<T, TProperty>> propertySelector,
         ThresholdType thresholdType,
@@ -426,5 +450,30 @@ public static class SetupValidationExtensions
         var builder = services.AddSetupValidation();
         configure?.Invoke(builder);
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Add validation system and register a validation flow with the provided metric selector
+    /// </summary>
+    public static IServiceCollection AddSetupValidation<T>(this IServiceCollection services,
+        Action<SetupValidationBuilder> configure,
+        Expression<Func<T, decimal>> metricSelector) where T : class
+    {
+        var builder = services.AddSetupValidation();
+        configure(builder);
+
+        builder.AddValidationFlow(metricSelector, flow => flow.EnableSaveValidation());
+        builder.Build();
+
+        if (services.Any(d => d.ServiceType == typeof(IMongoDatabase)))
+        {
+            services.AddScoped(typeof(IGenericRepository<T>), typeof(MongoGenericRepository<T>));
+        }
+        else
+        {
+            services.AddScoped(typeof(IGenericRepository<T>), typeof(EfGenericRepository<T>));
+        }
+
+        return services;
     }
 }

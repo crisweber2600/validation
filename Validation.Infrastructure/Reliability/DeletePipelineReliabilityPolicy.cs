@@ -52,12 +52,9 @@ public class DeletePipelineReliabilityPolicy
                 lastException = ex;
                 attempts++;
                 
-                if (ShouldRetry(ex, attempts - 1))
+                if (ShouldRetry(ex))
                 {
-                    Interlocked.Increment(ref _consecutiveFailures);
-                    _lastFailureTime = DateTime.UtcNow;
-
-                    _logger.LogWarning(ex, 
+                    _logger.LogWarning(ex,
                         "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
                         attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
 
@@ -76,13 +73,18 @@ public class DeletePipelineReliabilityPolicy
                 {
                     // Non-retryable exception - rethrow immediately
                     _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
+                    Interlocked.Increment(ref _consecutiveFailures);
+                    _lastFailureTime = DateTime.UtcNow;
                     throw;
                 }
             }
         }
 
         _logger.LogError(lastException, "Delete pipeline operation failed after {Attempts} attempts", attempts);
-        
+
+        Interlocked.Increment(ref _consecutiveFailures);
+        _lastFailureTime = DateTime.UtcNow;
+
         // Always wrap retryable exceptions that exhausted retries in DeletePipelineReliabilityException
         throw new DeletePipelineReliabilityException(
             $"Delete pipeline operation failed after {attempts} attempts", lastException);
@@ -106,15 +108,10 @@ public class DeletePipelineReliabilityPolicy
         }, cancellationToken);
     }
 
-    private bool ShouldRetry(Exception exception, int attempt)
+    private bool ShouldRetry(Exception exception)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
-        // Don't retry on certain exception types
         if (exception is ArgumentException or ArgumentNullException)
             return false;
-
         return true;
     }
 

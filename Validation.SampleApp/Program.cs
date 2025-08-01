@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Validation.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Validation.Domain.Validation;
 using Validation.Infrastructure;
 using Validation.Infrastructure.Setup;
@@ -15,32 +16,16 @@ class Program
         Console.WriteLine("Unified Validation System Sample Application");
         Console.WriteLine("===========================================");
 
-        // Create a host with the unified validation system
+        // Create a host with the unified validation system using the generic helper
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                // Configure the unified validation system using the fluent builder
-                services.AddSetupValidation()
-                    .AddValidationFlow<Item>(flow => flow
-                        .EnableSaveValidation()
-                        .EnableDeleteValidation()
-                        .EnableSoftDelete()
-                        .WithThreshold(x => x.Metric, ThresholdType.GreaterThan, 5)
-                        .WithValidationTimeout(TimeSpan.FromMinutes(1))
-                        .EnableAuditing())
-                    
-                    .AddRule<Item>("PositiveValue", item => item.Metric > 0)
-                    .AddRule<Item>("ReasonableRange", item => item.Metric <= 1000)
-                    
-                    .ConfigureMetrics(metrics => metrics
-                        .WithProcessingInterval(TimeSpan.FromSeconds(30))
-                        .EnableDetailedMetrics(false))
-                    
-                    .ConfigureReliability(reliability => reliability
-                        .WithMaxRetries(2)
-                        .WithRetryDelay(TimeSpan.FromMilliseconds(500)))
-                    
-                    .Build();
+                services.AddSetupValidation<Item>(builder =>
+                {
+                    builder.UseEntityFramework<SampleDbContext>()
+                           .ConfigureMetrics(m => m.WithProcessingInterval(TimeSpan.FromSeconds(30)))
+                           .ConfigureReliability(r => r.WithMaxRetries(2));
+                }, x => x.Metric);
             })
             .ConfigureLogging(logging =>
             {
@@ -127,7 +112,7 @@ class Program
     }
 
     private static void ProcessValidationEvent(
-        Validation.Domain.Events.IValidationEvent validationEvent, 
+        Validation.Domain.Events.IValidationEvent validationEvent,
         ILogger logger)
     {
         logger.LogInformation("Processing {EventType} for {EntityType} {EntityId} at {Timestamp}",
@@ -153,4 +138,12 @@ class Program
             logger.LogInformation("  Attempt Number: {AttemptNumber}", retryableEvent.AttemptNumber);
         }
     }
+}
+
+public class SampleDbContext : DbContext
+{
+    public SampleDbContext(DbContextOptions<SampleDbContext> options) : base(options) { }
+
+    public DbSet<SaveAudit> SaveAudits => Set<SaveAudit>();
+    public DbSet<Item> Items => Set<Item>();
 }
