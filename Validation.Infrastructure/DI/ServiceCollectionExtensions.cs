@@ -154,6 +154,46 @@ public static class ServiceCollectionExtensions
                     x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
                 }
+                if (config.DeleteValidation)
+                {
+                    x.AddConsumer(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteValidationConsumer<>).MakeGenericType(type));
+                }
+                if (config.DeleteCommit)
+                {
+                    x.AddConsumer(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(DeleteCommitConsumer<>).MakeGenericType(type));
+                }
+
+                if (config.ManualValidationRules != null)
+                {
+                    foreach (var ruleProp in config.ManualValidationRules)
+                    {
+                        var param = Expression.Parameter(type, "e");
+                        var prop = Expression.PropertyOrField(param, ruleProp);
+                        Expression body;
+                        if (prop.Type == typeof(string))
+                        {
+                            var mi = typeof(string).GetMethod(nameof(string.IsNullOrWhiteSpace), new[] { typeof(string) })!;
+                            body = Expression.Not(Expression.Call(mi, prop));
+                        }
+                        else if (prop.Type.IsValueType)
+                        {
+                            var zero = Expression.Convert(Expression.Constant(0), prop.Type);
+                            var greater = Expression.GreaterThan(prop, zero);
+                            body = greater;
+                        }
+                        else
+                        {
+                            body = Expression.NotEqual(prop, Expression.Constant(null, prop.Type));
+                        }
+
+                        var lambda = Expression.Lambda(typeof(Func<,>).MakeGenericType(type, typeof(bool)), body, param).Compile();
+                        typeof(ServiceCollectionExtensions).GetMethod("AddValidatorRule")!
+                            .MakeGenericMethod(type)
+                            .Invoke(null, new object[] { services, lambda });
+                    }
+                }
             }
             x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
         });

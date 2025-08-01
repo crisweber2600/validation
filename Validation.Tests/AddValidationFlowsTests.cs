@@ -93,4 +93,72 @@ public class AddValidationFlowsTests
         var planProvider = scope.ServiceProvider.GetRequiredService<IValidationPlanProvider>();
         Assert.NotNull(planProvider);
     }
+
+    [Fact]
+    public void AddValidationFlows_registers_delete_consumers_from_config()
+    {
+        const string json = """
+            [{
+                "Type": "Validation.Domain.Entities.Item, Validation.Domain",
+                "DeleteValidation": true,
+                "DeleteCommit": true
+            }]
+            """;
+
+        using var doc = JsonDocument.Parse(json);
+        var configs = new List<ValidationFlowConfig>();
+        foreach (var element in doc.RootElement.EnumerateArray())
+        {
+            configs.Add(new ValidationFlowConfig
+            {
+                Type = element.GetProperty("Type").GetString()!,
+                DeleteValidation = element.GetProperty("DeleteValidation").GetBoolean(),
+                DeleteCommit = element.GetProperty("DeleteCommit").GetBoolean()
+            });
+        }
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("delete-flows-test"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteValidationConsumer<Item>>());
+        Assert.NotNull(scope.ServiceProvider.GetService<DeleteCommitConsumer<Item>>());
+    }
+
+    [Fact]
+    public void AddValidationFlows_registers_manual_rules_from_json()
+    {
+        const string json = """
+            [{
+                "Type": "Validation.Domain.Entities.Item, Validation.Domain",
+                "ManualValidationRules": ["Metric"]
+            }]
+            """;
+
+        using var doc = JsonDocument.Parse(json);
+        var configs = new List<ValidationFlowConfig>();
+        foreach (var element in doc.RootElement.EnumerateArray())
+        {
+            configs.Add(new ValidationFlowConfig
+            {
+                Type = element.GetProperty("Type").GetString()!,
+                ManualValidationRules = element.GetProperty("ManualValidationRules").EnumerateArray().Select(v => v.GetString()!).ToArray()
+            });
+        }
+
+        var services = new ServiceCollection();
+        services.AddDbContext<TestDbContext>(o => o.UseInMemoryDatabase("manual-rules-test"));
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<TestDbContext>());
+        services.AddValidationFlows(configs);
+
+        using var provider = services.BuildServiceProvider();
+        var validator = provider.GetRequiredService<IManualValidatorService>();
+
+        Assert.False(validator.Validate(new Item(0)));
+        Assert.True(validator.Validate(new Item(10)));
+    }
 }

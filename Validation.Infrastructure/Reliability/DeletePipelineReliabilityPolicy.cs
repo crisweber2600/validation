@@ -68,7 +68,6 @@ public class DeletePipelineReliabilityPolicy
                     }
                     else
                     {
-                        // Retryable exception but retries exhausted - this will be wrapped below
                         break;
                     }
                 }
@@ -101,14 +100,7 @@ public class DeletePipelineReliabilityPolicy
 
     private bool ShouldRetry(Exception exception, int attempt)
     {
-        if (attempt >= _options.MaxRetryAttempts - 1)
-            return false;
-
-        // Don't retry on certain exception types
-        if (exception is ArgumentException or ArgumentNullException)
-            return false;
-
-        return true;
+        return exception is not (ArgumentException or ArgumentNullException);
     }
 
     private bool IsCircuitOpen()
