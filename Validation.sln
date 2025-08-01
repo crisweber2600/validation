@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ValidationFlow.Messages", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validation.SampleApp", "Validation.SampleApp\Validation.SampleApp.csproj", "{4E79E572-6CA6-4C23-AF4F-D28C88A6D13E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validation.RepositoryPattern.Sample", "Validation.RepositoryPattern.Sample\Validation.RepositoryPattern.Sample.csproj", "{180774A6-BD33-4A3E-B98F-588576C5687B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{4E79E572-6CA6-4C23-AF4F-D28C88A6D13E}.Release|x64.Build.0 = Release|Any CPU
 		{4E79E572-6CA6-4C23-AF4F-D28C88A6D13E}.Release|x86.ActiveCfg = Release|Any CPU
 		{4E79E572-6CA6-4C23-AF4F-D28C88A6D13E}.Release|x86.Build.0 = Release|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Debug|x64.Build.0 = Debug|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Debug|x86.Build.0 = Debug|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Release|x64.ActiveCfg = Release|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Release|x64.Build.0 = Release|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Release|x86.ActiveCfg = Release|Any CPU
+		{180774A6-BD33-4A3E-B98F-588576C5687B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
