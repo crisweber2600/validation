@@ -79,6 +79,50 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddSaveValidation<T>(this IServiceCollection services)
+    {
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveValidationConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        services.AddScoped<SaveValidationConsumer<T>>();
+        return services;
+    }
+
+    public static IServiceCollection AddSaveCommit<T>(this IServiceCollection services)
+    {
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<SaveCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        services.AddScoped<SaveCommitConsumer<T>>();
+        return services;
+    }
+
+    public static IServiceCollection AddDeleteValidation<T>(this IServiceCollection services)
+    {
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<DeleteValidationConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        services.AddScoped<DeleteValidationConsumer<T>>();
+        return services;
+    }
+
+    public static IServiceCollection AddDeleteCommit<T>(this IServiceCollection services)
+    {
+        services.AddMassTransitTestHarness(x =>
+        {
+            x.AddConsumer<DeleteCommitConsumer<T>>();
+            x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+        });
+        services.AddScoped<DeleteCommitConsumer<T>>();
+        return services;
+    }
+
     public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
     {
         // Set up validation plan provider with configurations
@@ -110,25 +154,38 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
-        // Set up MassTransit with dynamic consumer registration
-        services.AddMassTransitTestHarness(x =>
+        foreach (var config in configs)
         {
-            foreach (var config in configs)
+            var type = Type.GetType(config.Type, true)!;
+            if (config.SaveValidation)
             {
-                var type = Type.GetType(config.Type, true)!;
-                if (config.SaveValidation)
-                {
-                    x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
-                    services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
-                }
-                if (config.SaveCommit)
-                {
-                    x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
-                    services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
-                }
+                typeof(ServiceCollectionExtensions)
+                    .GetMethod(nameof(AddSaveValidation))!
+                    .MakeGenericMethod(type)
+                    .Invoke(null, new object[] { services });
             }
-            x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
-        });
+            if (config.SaveCommit)
+            {
+                typeof(ServiceCollectionExtensions)
+                    .GetMethod(nameof(AddSaveCommit))!
+                    .MakeGenericMethod(type)
+                    .Invoke(null, new object[] { services });
+            }
+            if (config.DeleteValidation)
+            {
+                typeof(ServiceCollectionExtensions)
+                    .GetMethod(nameof(AddDeleteValidation))!
+                    .MakeGenericMethod(type)
+                    .Invoke(null, new object[] { services });
+            }
+            if (config.DeleteCommit)
+            {
+                typeof(ServiceCollectionExtensions)
+                    .GetMethod(nameof(AddDeleteCommit))!
+                    .MakeGenericMethod(type)
+                    .Invoke(null, new object[] { services });
+            }
+        }
 
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
