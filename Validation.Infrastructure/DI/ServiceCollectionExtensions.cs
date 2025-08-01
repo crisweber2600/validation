@@ -277,4 +277,45 @@ public static class ValidationFlowServiceCollectionExtensions
         configure?.Invoke(options);
         return services;
     }
+
+    /// <summary>
+    /// Add configurable entity ID provider with optional configuration
+    /// </summary>
+    public static IServiceCollection AddConfigurableEntityIdProvider(
+        this IServiceCollection services, Action<ConfigurableEntityIdProvider>? configure = null)
+    {
+        var provider = new ConfigurableEntityIdProvider();
+        configure?.Invoke(provider);
+        services.AddSingleton<IEntityIdProvider>(provider);
+        return services;
+    }
+
+    /// <summary>
+    /// Add reflection-based entity ID provider with property priority
+    /// </summary>
+    public static IServiceCollection AddReflectionBasedEntityIdProvider(
+        this IServiceCollection services, params string[] propertyPriority)
+    {
+        services.AddSingleton<IEntityIdProvider>(
+            sp => new ReflectionBasedEntityIdProvider(propertyPriority));
+        return services;
+    }
+
+    /// <summary>
+    /// Configure entity ID selector for a specific type (WithEntityIdSelector pattern)
+    /// </summary>
+    public static IServiceCollection WithEntityIdSelector<T>(
+        this IServiceCollection services, Func<T, string> selector)
+    {
+        // Remove any existing IEntityIdProvider
+        var toRemove = services.FirstOrDefault(d => d.ServiceType == typeof(IEntityIdProvider));
+        if (toRemove != null) services.Remove(toRemove);
+
+        services.AddConfigurableEntityIdProvider(provider => provider.RegisterSelector(selector));
+        
+        // Register the entity-aware consumer for this type
+        services.AddScoped<EntityAwareSaveValidationConsumer<T>>();
+        
+        return services;
+    }
 }
