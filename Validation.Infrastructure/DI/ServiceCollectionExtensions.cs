@@ -54,6 +54,12 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+    public static IServiceCollection AddValidatorService(this IServiceCollection services)
+    {
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
 
     public static IServiceCollection AddValidatorRule<T>(this IServiceCollection services, Func<T, bool> rule)
     {

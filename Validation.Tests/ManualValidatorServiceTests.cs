@@ -17,4 +17,20 @@ public class ManualValidatorServiceTests
         Assert.True(svc.Validate("hello"));
         Assert.False(svc.Validate("hi"));
     }
+    private class MyEntity
+    {
+        public int Id { get; set; }
+    }
+
+    [Fact]
+    public void Runtime_rule_addition_works()
+    {
+        var services = new ServiceCollection();
+        services.AddValidatorService()
+                .AddValidatorRule<MyEntity>(e => e.Id % 2 == 0);
+        var provider = services.BuildServiceProvider();
+        var svc = provider.GetRequiredService<IManualValidatorService>();
+        Assert.True(svc.Validate(new MyEntity { Id = 4 }));
+        Assert.False(svc.Validate(new MyEntity { Id = 3 }));
+    }
 }
