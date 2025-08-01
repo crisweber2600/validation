@@ -151,6 +151,7 @@ public class EnhancedManualValidatorService : IEnhancedManualValidatorService
                                 kvp.Key, type.Name);
                             result.IsValid = false;
                             result.Errors.Add($"Rule '{kvp.Key}' execution failed: {ex.Message}");
+                            result.FailedRules.Add(kvp.Key);
                         }
                     }
                 }

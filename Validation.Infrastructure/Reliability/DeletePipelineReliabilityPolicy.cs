@@ -51,32 +51,29 @@ public class DeletePipelineReliabilityPolicy
             {
                 lastException = ex;
                 attempts++;
-                
-                if (ShouldRetry(ex, attempts - 1))
+
+                if (ex is ArgumentException or ArgumentNullException)
                 {
+                    _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
                     Interlocked.Increment(ref _consecutiveFailures);
                     _lastFailureTime = DateTime.UtcNow;
+                    throw;
+                }
 
-                    _logger.LogWarning(ex, 
-                        "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
-                        attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
+                _logger.LogWarning(ex,
+                    "Delete pipeline operation failed. Attempt {Attempt} of {MaxAttempts}. Retrying in {DelayMs}ms",
+                    attempts, _options.MaxRetryAttempts, _options.RetryDelayMs);
 
-                    if (attempts < _options.MaxRetryAttempts)
-                    {
-                        await Task.Delay(_options.RetryDelayMs, cancellationToken);
-                        continue;
-                    }
-                    else
-                    {
-                        // Retryable exception but retries exhausted - this will be wrapped below
-                        break;
-                    }
+                if (attempts < _options.MaxRetryAttempts)
+                {
+                    await Task.Delay(_options.RetryDelayMs, cancellationToken);
+                    continue;
                 }
                 else
                 {
-                    // Non-retryable exception - rethrow immediately
-                    _logger.LogError(ex, "Delete pipeline operation failed with non-retryable exception");
-                    throw;
+                    Interlocked.Increment(ref _consecutiveFailures);
+                    _lastFailureTime = DateTime.UtcNow;
+                    break;
                 }
             }
         }
