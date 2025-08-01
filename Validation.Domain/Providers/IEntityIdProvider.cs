@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Validation.Domain.Providers;
 
@@ -120,4 +124,119 @@ public class AttributeEntityIdProvider : IEntityIdProvider
 [AttributeUsage(AttributeTargets.Property)]
 public class EntityIdAttribute : Attribute
 {
+}
+
+/// <summary>
+/// Configurable entity ID provider that supports per-type custom selectors
+/// </summary>
+public class ConfigurableEntityIdProvider : IEntityIdProvider
+{
+    private readonly Dictionary<Type, Func<object, Guid>> _selectors = new();
+
+    /// <summary>
+    /// Register a custom selector for a specific entity type
+    /// </summary>
+    /// <typeparam name="T">Entity type</typeparam>
+    /// <param name="selector">Function to extract string key from entity</param>
+    public void RegisterSelector<T>(Func<T, string> selector)
+    {
+        _selectors[typeof(T)] = obj =>
+        {
+            var key = selector((T)obj) ?? string.Empty;
+            // Create a deterministic Guid from the string (use MD5 hash)
+            using var md5 = MD5.Create();
+            var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(key));
+            return new Guid(hash);
+        };
+    }
+
+    public Guid GetEntityId<T>(T entity)
+    {
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+
+        if (_selectors.TryGetValue(typeof(T), out var extractor))
+        {
+            return extractor(entity);
+        }
+
+        // fallback: return Guid from entity.Id if available, otherwise new Guid
+        var idProp = typeof(T).GetProperty("Id");
+        if (idProp?.GetValue(entity) is Guid id) 
+            return id;
+        
+        return Guid.NewGuid();
+    }
+
+    public bool CanHandle<T>()
+    {
+        return _selectors.ContainsKey(typeof(T)) || typeof(T).GetProperty("Id") != null;
+    }
+}
+
+/// <summary>
+/// Reflection-based entity ID provider with configurable property priority
+/// </summary>
+public class ReflectionBasedEntityIdProvider : IEntityIdProvider
+{
+    private readonly string[] _propertyPriority;
+
+    public ReflectionBasedEntityIdProvider(params string[] propertyPriority)
+    {
+        _propertyPriority = propertyPriority.Length > 0 ? propertyPriority : new[] { "Name", "Code", "Key", "Title" };
+    }
+
+    public Guid GetEntityId<T>(T entity)
+    {
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+
+        var type = typeof(T);
+        
+        // Try priority string properties first
+        foreach (var propertyName in _propertyPriority)
+        {
+            var property = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+            if (property?.PropertyType == typeof(string))
+            {
+                var value = property.GetValue(entity) as string;
+                if (!string.IsNullOrEmpty(value))
+                {
+                    // Create deterministic Guid from string value
+                    using var md5 = MD5.Create();
+                    var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(value));
+                    return new Guid(hash);
+                }
+            }
+        }
+
+        // Fallback to existing Id property
+        var idProperty = type.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance);
+        if (idProperty != null)
+        {
+            var value = idProperty.GetValue(entity);
+            if (value is Guid guid)
+                return guid;
+            if (value is string str && Guid.TryParse(str, out var parsedGuid))
+                return parsedGuid;
+        }
+
+        // Final fallback to new Guid
+        return Guid.NewGuid();
+    }
+
+    public bool CanHandle<T>()
+    {
+        var type = typeof(T);
+        
+        // Check if type has any of the priority string properties
+        foreach (var propertyName in _propertyPriority)
+        {
+            if (type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance)?.PropertyType == typeof(string))
+                return true;
+        }
+        
+        // Check if it has an Id property
+        return type.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance) != null;
+    }
 }

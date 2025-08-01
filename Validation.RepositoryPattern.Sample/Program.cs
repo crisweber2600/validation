@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Setup;
+using Validation.Infrastructure.DI;
 using Validation.RepositoryPattern.Sample.Data;
 using Validation.RepositoryPattern.Sample.Models;
 using Validation.RepositoryPattern.Sample.Repositories;
@@ -89,6 +90,9 @@ class Program
                         .WithRetryDelay(TimeSpan.FromMilliseconds(500)))
                     
                     .Build();
+
+                // Configure entity ID selector for Server to use Name property
+                services.WithEntityIdSelector<Server>(s => s.Name);
 
                 // Register repository pattern components
                 RegisterRepositoryPattern(services);

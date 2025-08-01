@@ -178,6 +178,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
+        
+        // Register entity ID and application name providers if not already registered
+        if (!services.Any(s => s.ServiceType == typeof(IEntityIdProvider)))
+        {
+            services.AddSingleton<IEntityIdProvider, ReflectionEntityIdProvider>();
+        }
+        if (!services.Any(s => s.ServiceType == typeof(IApplicationNameProvider)))
+        {
+            services.AddSingleton<IApplicationNameProvider>(sp => new StaticApplicationNameProvider("ValidationFlowApp"));
+        }
 
         // Register flow configs for ValidationFlowOrchestrator
         services.AddSingleton<IEnumerable<ValidationFlowConfig>>(configs);
@@ -195,6 +205,10 @@ public static class ServiceCollectionExtensions
                 {
                     x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
                     services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                    
+                    // Add entity-aware consumer to support WithEntityIdSelector pattern
+                    x.AddConsumer(typeof(EntityAwareSaveValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(EntityAwareSaveValidationConsumer<>).MakeGenericType(type));
                     
                     // Add batch consumer if enabled
                     x.AddConsumer(typeof(BatchSaveValidationConsumer<>).MakeGenericType(type));
@@ -275,6 +289,47 @@ public static class ValidationFlowServiceCollectionExtensions
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
+        return services;
+    }
+
+    /// <summary>
+    /// Add configurable entity ID provider with optional configuration
+    /// </summary>
+    public static IServiceCollection AddConfigurableEntityIdProvider(
+        this IServiceCollection services, Action<ConfigurableEntityIdProvider>? configure = null)
+    {
+        var provider = new ConfigurableEntityIdProvider();
+        configure?.Invoke(provider);
+        services.AddSingleton<IEntityIdProvider>(provider);
+        return services;
+    }
+
+    /// <summary>
+    /// Add reflection-based entity ID provider with property priority
+    /// </summary>
+    public static IServiceCollection AddReflectionBasedEntityIdProvider(
+        this IServiceCollection services, params string[] propertyPriority)
+    {
+        services.AddSingleton<IEntityIdProvider>(
+            sp => new ReflectionBasedEntityIdProvider(propertyPriority));
+        return services;
+    }
+
+    /// <summary>
+    /// Configure entity ID selector for a specific type (WithEntityIdSelector pattern)
+    /// </summary>
+    public static IServiceCollection WithEntityIdSelector<T>(
+        this IServiceCollection services, Func<T, string> selector)
+    {
+        // Remove any existing IEntityIdProvider
+        var toRemove = services.FirstOrDefault(d => d.ServiceType == typeof(IEntityIdProvider));
+        if (toRemove != null) services.Remove(toRemove);
+
+        services.AddConfigurableEntityIdProvider(provider => provider.RegisterSelector(selector));
+        
+        // Register the entity-aware consumer for this type
+        services.AddScoped<EntityAwareSaveValidationConsumer<T>>();
+        
         return services;
     }
 }
