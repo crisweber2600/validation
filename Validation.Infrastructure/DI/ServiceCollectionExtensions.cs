@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         Action<IBusRegistrationConfigurator>? configureBus = null)
     {
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.AddScoped<INannyRecordRepository, EfNannyRecordRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
@@ -41,6 +42,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton(database);
         services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        services.AddScoped<INannyRecordRepository, MongoNannyRecordRepository>();
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
 
@@ -107,6 +109,7 @@ public static class ServiceCollectionExtensions
 
         // Register dependencies for consumers
         services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.AddScoped<INannyRecordRepository, EfNannyRecordRepository>();
         services.AddSingleton<IManualValidatorService, ManualValidatorService>();
         services.AddScoped<SummarisationValidator>();
 
@@ -154,6 +157,7 @@ public static class ValidationFlowServiceCollectionExtensions
         options.Services.AddDbContext<TContext>(o => o.UseInMemoryDatabase(connectionString));
         options.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<TContext>());
         options.Services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        options.Services.AddScoped<INannyRecordRepository, EfNannyRecordRepository>();
         return options.Services;
     }
 
@@ -163,6 +167,7 @@ public static class ValidationFlowServiceCollectionExtensions
         var database = client.GetDatabase(dbName);
         options.Services.AddSingleton(database);
         options.Services.AddScoped<ISaveAuditRepository, MongoSaveAuditRepository>();
+        options.Services.AddScoped<INannyRecordRepository, MongoNannyRecordRepository>();
         return options.Services;
     }
 
