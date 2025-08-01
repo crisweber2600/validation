@@ -9,6 +9,7 @@ using Serilog;
 using Validation.Domain.Validation;
 using Validation.Infrastructure.Messaging;
 using Validation.Infrastructure.Repositories;
+using Validation.Infrastructure.Pipeline;
 using Validation.Infrastructure;
 
 namespace Validation.Infrastructure.DI;
@@ -133,6 +134,25 @@ public static class ServiceCollectionExtensions
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a metrics validation pipeline for <typeparamref name="T"/>.
+    /// Metrics are gathered, summarised, validated and either committed or discarded.
+    /// </summary>
+    /// <typeparam name="T">Metric owner type.</typeparam>
+    /// <param name="services">Service collection.</param>
+    /// <param name="gathererFactory">Optional factory to override the gather service.</param>
+    public static IServiceCollection AddMetricsPipeline<T>(this IServiceCollection services,
+        Func<IServiceProvider, IGatherService>? gathererFactory = null)
+    {
+        services.AddSingleton(gathererFactory ?? (_ => new InMemoryGatherService()));
+        services.AddSingleton<SummarizationService>(_ => new SummarizationService(ValidationStrategy.Sum));
+        services.AddScoped<ValidationService>();
+        services.AddScoped<CommitService>();
+        services.AddSingleton<DiscardHandler>();
+        services.AddHostedService<PipelineOrchestrator<T>>();
         return services;
     }
 }
