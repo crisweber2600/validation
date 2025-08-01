@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Validation.Infrastructure.Repositories;
+using Validation.Domain.Validation;
 
 namespace Validation.Infrastructure.Repositories;
 
-public class EfCoreSaveAuditRepository : ISaveAuditRepository
+public class EfCoreSaveAuditRepository : ISaveAuditRepository, IAuditMetricRepository
 {
     private readonly DbContext _context;
     private readonly DbSet<SaveAudit> _set;
@@ -47,5 +48,11 @@ public class EfCoreSaveAuditRepository : ISaveAuditRepository
             .Where(a => a.EntityId == entityId)
             .OrderByDescending(a => a.Timestamp)
             .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<decimal?> GetLastMetricAsync(string id, CancellationToken ct = default)
+    {
+        var guid = Guid.Parse(id);
+        return (await GetLastAsync(guid, ct))?.Metric;
     }
 }

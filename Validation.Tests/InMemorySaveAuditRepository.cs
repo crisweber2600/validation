@@ -1,9 +1,10 @@
 using Validation.Infrastructure;
 using Validation.Infrastructure.Repositories;
+using Validation.Domain.Validation;
 
 namespace Validation.Tests;
 
-public class InMemorySaveAuditRepository : ISaveAuditRepository
+public class InMemorySaveAuditRepository : ISaveAuditRepository, IAuditMetricRepository
 {
     public List<SaveAudit> Audits { get; } = new();
 
@@ -37,5 +38,14 @@ public class InMemorySaveAuditRepository : ISaveAuditRepository
             .OrderByDescending(a => a.Timestamp)
             .FirstOrDefault();
         return Task.FromResult<SaveAudit?>(audit);
+    }
+
+    public Task<decimal?> GetLastMetricAsync(string id, CancellationToken ct = default)
+    {
+        var guid = Guid.Parse(id);
+        var metric = Audits.Where(a => a.EntityId == guid)
+            .OrderByDescending(a => a.Timestamp)
+            .FirstOrDefault()?.Metric;
+        return Task.FromResult(metric);
     }
 }
