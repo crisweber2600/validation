@@ -116,8 +116,56 @@ public static class ValidationFlowServiceCollectionExtensions
         });
         services.AddLogging(b => b.AddSerilog());
         services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+
         var options = new ValidationFlowOptions(services);
         configure?.Invoke(options);
+        return services;
+    }
+
+    public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
+    {
+        services.AddSingleton<IValidationPlanProvider>(sp =>
+        {
+            var provider = new InMemoryValidationPlanProvider();
+            foreach (var cfg in configs)
+            {
+                var type = Type.GetType(cfg.Type) ?? throw new ArgumentException($"Type {cfg.Type} not found");
+                var prop = type.GetProperty(cfg.MetricProperty);
+                if (prop == null)
+                    throw new ArgumentException($"Property {cfg.MetricProperty} not found on {type}");
+
+                var param = System.Linq.Expressions.Expression.Parameter(typeof(object), "o");
+                var body = System.Linq.Expressions.Expression.Convert(
+                    System.Linq.Expressions.Expression.Property(
+                        System.Linq.Expressions.Expression.Convert(param, type), prop), typeof(decimal));
+                var selector = System.Linq.Expressions.Expression.Lambda<Func<object, decimal>>(body, param).Compile();
+                var plan = new ValidationPlan(selector, cfg.ThresholdType, cfg.ThresholdValue);
+                var method = typeof(InMemoryValidationPlanProvider).GetMethod(nameof(InMemoryValidationPlanProvider.AddPlan))!.MakeGenericMethod(type);
+                method.Invoke(provider, new object[] { plan });
+            }
+            return provider;
+        });
+        services.AddScoped<SummarisationValidator>();
+        services.AddMassTransitTestHarness(x =>
+        {
+            foreach (var cfg in configs)
+            {
+                var type = Type.GetType(cfg.Type) ?? throw new ArgumentException($"Type {cfg.Type} not found");
+                if (cfg.SaveValidation)
+                {
+                    x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                }
+                if (cfg.SaveCommit)
+                {
+                    x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                }
+            }
+            x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
+        });
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
         return services;
     }
 }
