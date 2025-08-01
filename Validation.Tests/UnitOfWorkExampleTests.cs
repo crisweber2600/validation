@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Validation.Domain.Validation;
+using Validation.Infrastructure.Repositories;
 using Validation.Infrastructure;
 
 namespace Validation.Tests;
@@ -27,6 +28,7 @@ public class UnitOfWorkExampleTests
         services.AddScoped<DbContext>(sp => sp.GetRequiredService<ExampleDbContext>());
         services.AddSingleton<IValidationPlanProvider, InMemoryValidationPlanProvider>();
         services.AddScoped<SummarisationValidator>();
+        services.AddScoped<INannyRecordRepository, InMemoryNannyRecordRepository>();
         services.AddScoped<UnitOfWork>();
 
         var provider = services.BuildServiceProvider();
