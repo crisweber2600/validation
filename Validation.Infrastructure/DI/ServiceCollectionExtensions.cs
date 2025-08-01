@@ -1,4 +1,5 @@
 using MassTransit;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,12 @@ namespace Validation.Infrastructure.DI;
 
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Adds MassTransit and repository infrastructure required for validation flows.
+    /// Save and delete request endpoints are configured with message retry and
+    /// in-memory outbox for reliability. Delete requests use a dead-letter queue
+    /// named <c>delete_requests_queue_error</c> by default.
+    /// </summary>
     public static IServiceCollection AddValidationInfrastructure(
         this IServiceCollection services,
         Action<IBusRegistrationConfigurator>? configureBus = null)
@@ -25,7 +32,20 @@ public static class ServiceCollectionExtensions
 
         services.AddMassTransit(x =>
         {
+            x.AddConsumer(typeof(SaveValidationConsumer<>));
+            x.AddConsumer(typeof(SaveCommitConsumer<>));
+            x.AddConsumer(typeof(DeleteValidationConsumer<>));
+            x.AddConsumer(typeof(DeleteCommitConsumer<>));
+
             configureBus?.Invoke(x);
+
+            x.UsingInMemory((context, cfg) =>
+            {
+                cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
+                cfg.UseInMemoryOutbox();
+
+                cfg.ConfigureEndpoints(context);
+            });
         });
 
         services.AddLogging(loggingBuilder => loggingBuilder.AddSerilog());
