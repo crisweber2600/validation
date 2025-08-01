@@ -11,9 +11,9 @@ public class MongoSaveAuditRepository : ISaveAuditRepository
         _collection = database.GetCollection<SaveAudit>("saveAudits");
     }
 
-    public async Task AddAsync(SaveAudit entity, CancellationToken ct = default)
+    public async Task AddAsync(SaveAudit audit, CancellationToken ct = default)
     {
-        await _collection.InsertOneAsync(entity, null, ct);
+        await _collection.InsertOneAsync(audit, null, ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
@@ -32,10 +32,10 @@ public class MongoSaveAuditRepository : ISaveAuditRepository
         await _collection.ReplaceOneAsync(x => x.Id == entity.Id, entity, cancellationToken: ct);
     }
 
-    public async Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<SaveAudit?> GetLastAsync(string entityKey, CancellationToken ct = default)
     {
         return await _collection
-            .Find(x => x.EntityId == entityId)
+            .Find(x => x.EntityId == entityKey)
             .SortByDescending(x => x.Timestamp)
             .FirstOrDefaultAsync(ct);
     }

@@ -14,9 +14,9 @@ public class SaveCommitConsumerTests
     {
         public Task AddAsync(SaveAudit entity, CancellationToken ct = default) => Task.CompletedTask;
         public Task DeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(new SaveAudit { Id = id, EntityId = id });
+        public Task<SaveAudit?> GetAsync(Guid id, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(new SaveAudit { Id = id, EntityId = id.ToString() });
         public Task UpdateAsync(SaveAudit entity, CancellationToken ct = default) => throw new Exception("fail");
-        public Task<SaveAudit?> GetLastAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);
+        public Task<SaveAudit?> GetLastAsync(string entityKey, CancellationToken ct = default) => Task.FromResult<SaveAudit?>(null);
     }
 
     [Fact]
