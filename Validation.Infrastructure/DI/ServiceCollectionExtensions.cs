@@ -1,5 +1,6 @@
 using MassTransit;
 using System.Linq;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
@@ -69,6 +70,69 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<IManualValidatorService>(svc);
         }
         svc.AddRule(rule);
+        return services;
+    }
+
+    public static IServiceCollection AddValidatorService(this IServiceCollection services)
+    {
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        return services;
+    }
+
+    public static IServiceCollection AddValidationFlows(this IServiceCollection services, IEnumerable<ValidationFlowConfig> configs)
+    {
+        // Set up validation plan provider with configurations
+        services.AddSingleton<IValidationPlanProvider>(serviceProvider =>
+        {
+            var provider = new InMemoryValidationPlanProvider();
+            foreach (var config in configs)
+            {
+                if (!string.IsNullOrEmpty(config.MetricProperty) && config.ThresholdType.HasValue && config.ThresholdValue.HasValue)
+                {
+                    var type = Type.GetType(config.Type, true)!;
+                    var param = Expression.Parameter(typeof(object), "o");
+                    var cast = Expression.Convert(param, type);
+                    var prop = Expression.Property(cast, config.MetricProperty);
+                    var conv = Expression.Convert(prop, typeof(decimal));
+                    var lambda = Expression.Lambda<Func<object, decimal>>(conv, param).Compile();
+                    var plan = new ValidationPlan(lambda, config.ThresholdType.Value, config.ThresholdValue.Value);
+                    
+                    typeof(InMemoryValidationPlanProvider).GetMethod("AddPlan")!
+                        .MakeGenericMethod(type)
+                        .Invoke(provider, new object[] { plan });
+                }
+            }
+            return provider;
+        });
+
+        // Register dependencies for consumers
+        services.AddScoped<ISaveAuditRepository, EfCoreSaveAuditRepository>();
+        services.AddSingleton<IManualValidatorService, ManualValidatorService>();
+        services.AddScoped<SummarisationValidator>();
+
+        // Set up MassTransit with dynamic consumer registration
+        services.AddMassTransitTestHarness(x =>
+        {
+            foreach (var config in configs)
+            {
+                var type = Type.GetType(config.Type, true)!;
+                if (config.SaveValidation)
+                {
+                    x.AddConsumer(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(SaveValidationConsumer<>).MakeGenericType(type));
+                }
+                if (config.SaveCommit)
+                {
+                    x.AddConsumer(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                    services.AddScoped(typeof(SaveCommitConsumer<>).MakeGenericType(type));
+                }
+            }
+            x.UsingInMemory((context, cfgBus) => cfgBus.ConfigureEndpoints(context));
+        });
+
+        services.AddLogging(b => b.AddSerilog());
+        services.AddOpenTelemetry().WithTracing(b => b.AddAspNetCoreInstrumentation());
+
         return services;
     }
 }
