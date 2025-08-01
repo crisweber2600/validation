@@ -184,8 +184,16 @@ services.AddSetupValidation()
     .ConfigureAuditing(auditing => auditing
         .EnableDetailedAuditing()
         .WithRetentionPeriod(TimeSpan.FromDays(365)))
-    
+
     .Build();
+```
+
+### Explicit Commit Registration
+
+```csharp
+// Register commit consumers manually
+services.AddSaveCommit<Item>();
+services.AddDeleteCommit<Item>();
 ```
 
 ### MongoDB Setup
